@@ -19,6 +19,8 @@ app.use(express.static(path.join(__dirname, 'public'),
   { maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0 }));
 
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
+// 총무가 폰에서 바로 열 수 있는 짧은 비밀번호. 짧은 만큼 횟수를 막는다.
+const ADMIN_PIN = process.env.ADMIN_PIN || '';
 const VOTE_OPEN = process.env.VOTE_OPEN !== 'false';
 const PICKS = Math.max(1, Math.min(8, parseInt(process.env.PICKS, 10) || 3));
 const SHORTLIST = (process.env.SHORTLIST || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -54,6 +56,37 @@ function codeOk(name, code) {
     .update(`${name}:${code}:${AUTH_SALT}`).digest('hex').slice(0, 20);
   return got.length === want.length &&
     crypto.timingSafeEqual(Buffer.from(got), Buffer.from(want));
+}
+
+function isAdmin(key) {
+  const k = String(key || '');
+  if (ADMIN_KEY && k === ADMIN_KEY) return true;
+  return !!(ADMIN_PIN && k === ADMIN_PIN);
+}
+
+// 관리자 비밀번호도 짧다. IP마다 틀린 횟수를 세서 막는다.
+const adminFails = new Map();
+function adminBlocked(ip) {
+  const f = adminFails.get(ip);
+  if (!f) return false;
+  if (Date.now() - f.at > 15 * 60 * 1000) { adminFails.delete(ip); return false; }
+  return f.n >= 7;
+}
+function guard(req, res) {
+  const ip = req.ip || '';
+  if (adminBlocked(ip)) {
+    res.status(429).json({ error: '여러 번 틀렸습니다. 15분 뒤에 다시 해주세요.' });
+    return false;
+  }
+  if (!isAdmin(req.query.key)) {
+    const f = adminFails.get(ip);
+    if (f && Date.now() - f.at <= 15 * 60 * 1000) { f.n += 1; f.at = Date.now(); }
+    else adminFails.set(ip, { n: 1, at: Date.now() });
+    res.status(403).json({ error: '비밀번호가 맞지 않습니다.' });
+    return false;
+  }
+  adminFails.delete(ip);
+  return true;
 }
 
 // 4자리는 1만 가지뿐이다. 무작정 넣어보는 걸 막는다.
@@ -105,6 +138,11 @@ if (process.env.DATABASE_URL) {
       return r.rows;
     },
     async clear() { await ready; await pool.query('delete from votes'); },
+    async del(voter) {
+      await ready;
+      const r = await pool.query('delete from votes where voter = $1', [voter]);
+      return r.rowCount;
+    },
   };
 } else {
   console.warn('[경고] DATABASE_URL이 없습니다. 투표가 메모리에만 남고 재시작하면 사라집니다.');
@@ -114,6 +152,7 @@ if (process.env.DATABASE_URL) {
     async put(voter, payload) { mem.set(voter, { voter, payload, updated_at: new Date() }); },
     async all() { return [...mem.values()]; },
     async clear() { mem.clear(); },
+    async del(voter) { return mem.delete(voter) ? 1 : 0; },
   };
 }
 
@@ -209,8 +248,7 @@ app.post('/api/vote', async (req, res) => {
 
 // 결과는 총무만 본다. 중간 순위가 보이면 뒤에 투표하는 사람이 끌려간다.
 app.get('/api/results', async (req, res) => {
-  if (!ADMIN_KEY || req.query.key !== ADMIN_KEY)
-    return res.status(403).json({ error: '권한이 없습니다.' });
+  if (!guard(req, res)) return;
   const rows = await store.all();
   res.json({
     picks: Math.min(PICKS, BALLOT.length),
@@ -227,13 +265,21 @@ app.get('/api/results', async (req, res) => {
 
 // 라운드를 새로 시작할 때 비운다. 되돌릴 수 없어서 키와 확인을 둘 다 받는다.
 app.post('/api/reset', async (req, res) => {
-  if (!ADMIN_KEY || req.query.key !== ADMIN_KEY)
-    return res.status(403).json({ error: '권한이 없습니다.' });
+  if (!guard(req, res)) return;
   if (req.query.confirm !== 'yes')
     return res.status(400).json({ error: 'confirm=yes 가 필요합니다.' });
   const before = (await store.all()).length;
   await store.clear();
   res.json({ ok: true, deleted: before });
+});
+
+// 잘못 들어간 한 건만 지운다. 전체를 비우는 것보다 이쪽을 먼저 쓴다.
+app.post('/api/admin/delete', async (req, res) => {
+  if (!guard(req, res)) return;
+  const voter = String((req.body && req.body.voter) || '').trim();
+  if (!voter) return res.status(400).json({ error: '누구를 지울지 알려주세요.' });
+  const n = await store.del(voter);
+  res.json({ ok: true, deleted: n });
 });
 
 const PORT = process.env.PORT || 3000;

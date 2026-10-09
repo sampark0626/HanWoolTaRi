@@ -2,7 +2,7 @@
 // 고른 순서가 곧 순위다 — 1순위 3점, 2순위 2점, 3순위 1점.
 // 대진표는 걷어냈다. 붙는 상대에 따라 결과가 흔들려 공정한 비교가 안 됐다.
 (() => {
-  const V = '11';          // 이미지를 교체하면 올린다 — 안 올리면 옛 그림이 남는다
+  const V = '12';          // 이미지를 교체하면 올린다 — 안 올리면 옛 그림이 남는다
   const $ = id => document.getElementById(id);
   const show = id => document.querySelectorAll('.screen')
     .forEach(s => s.classList.toggle('on', s.id === id));

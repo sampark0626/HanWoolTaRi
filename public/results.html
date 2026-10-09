@@ -2,114 +2,192 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>유니폼 투표 집계 — 총무용</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>관리자 — 유니폼 투표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:#fff;color:#15181d;
-  padding:32px 20px 80px;-webkit-font-smoothing:antialiased}
-.wrap{max-width:820px;margin:0 auto}
-h1{font-size:30px;font-weight:900;letter-spacing:-.02em;margin-bottom:6px}
-p.sub{color:#6b7280;font-size:15px;line-height:1.6;margin-bottom:24px}
-.key{display:flex;gap:8px;margin-bottom:26px}
-.key input{flex:1;font:inherit;font-size:16px;padding:12px 14px;border:2px solid #e5e7eb;border-radius:12px}
-.key button{font:inherit;font-weight:700;padding:12px 22px;border:none;border-radius:12px;background:#15181d;color:#fff;cursor:pointer}
-table{width:100%;border-collapse:collapse;font-size:15px}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--ink:#15181d;--mute:#6b7280;--line:#e5e7eb;--bg:#f1f3f5;--win:#0f8a4d;--warn:#c2410c}
+body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);color:var(--ink);
+  -webkit-font-smoothing:antialiased;padding:24px 16px calc(60px + env(safe-area-inset-bottom))}
+.wrap{max-width:860px;margin:0 auto}
+h1{font-size:26px;font-weight:900;letter-spacing:-.02em}
+p.sub{color:var(--mute);font-size:14px;line-height:1.6;margin:6px 0 22px}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+.gate{background:#fff;border:2px solid var(--line);border-radius:16px;padding:22px}
+.gate label{display:block;font-size:15px;font-weight:700;margin-bottom:10px}
+.gate input{width:150px;font:inherit;font-size:26px;font-weight:700;letter-spacing:.3em;
+  text-align:center;padding:13px 8px 13px 20px;border:2px solid var(--line);border-radius:12px}
+.gate input:focus{outline:none;border-color:var(--ink)}
+.gate button{margin-left:10px;padding:16px 26px;border-radius:12px;background:var(--ink);color:#fff;font-weight:700}
+.err{color:var(--warn);font-weight:700;font-size:15px;margin-top:12px}
+.err[hidden]{display:none}
+
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:18px}
+.card h2{font-size:17px;font-weight:900;margin-bottom:8px}
+.card p{font-size:14px;color:var(--mute);line-height:1.65}
+code{background:var(--bg);padding:3px 7px;border-radius:6px;font-size:14px;word-break:break-all}
+
+table{width:100%;border-collapse:collapse;font-size:15px;background:#fff;border-radius:14px;overflow:hidden}
 th,td{padding:12px 10px;text-align:left;border-bottom:1px solid #eef0f3}
-th{font-size:13px;color:#6b7280;font-weight:700;white-space:nowrap}
+th{font-size:12px;color:var(--mute);font-weight:700;white-space:nowrap;background:#fafbfc}
 td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 tr.top td{background:#f6fbf8}
-code{background:#f1f3f5;padding:3px 7px;border-radius:6px;font-size:14px}
 tr.top td:first-child{font-weight:900}
-.rank{width:34px;color:#6b7280;font-weight:700}
-.win{display:inline-block;min-width:22px;padding:1px 7px;border-radius:99px;background:#0f8a4d;color:#fff;font-size:13px;font-weight:700;text-align:center}
-.card{border:1px solid #e5e7eb;border-radius:16px;padding:18px;margin-bottom:22px}
-.card h2{font-size:17px;font-weight:900;margin-bottom:8px}
-.card p{font-size:14px;color:#6b7280;line-height:1.6}
-.voters{margin-top:26px;font-size:14px;color:#6b7280;line-height:1.8}
-.err{color:#c2410c;font-weight:700}
+.rank{width:34px;color:var(--mute);font-weight:700}
+.win{display:inline-block;min-width:22px;padding:1px 7px;border-radius:99px;background:var(--win);
+  color:#fff;font-size:13px;font-weight:700;text-align:center}
+.sm{color:var(--mute);font-size:13px}
+
+.del{padding:7px 13px;border:2px solid var(--line);border-radius:9px;font-size:13px;font-weight:700;color:var(--warn);background:#fff}
+.danger{border:2px solid #f3c7ae;background:#fff8f4}
+.danger h2{color:var(--warn)}
+.danger input{font:inherit;font-size:16px;padding:11px 13px;border:2px solid var(--line);border-radius:10px;width:190px}
+.danger button{padding:12px 20px;border-radius:10px;background:var(--warn);color:#fff;font-weight:700}
+.danger button:disabled{opacity:.4;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.bar{display:flex;gap:10px;align-items:center;margin-bottom:18px}
+.bar button{padding:10px 16px;border:2px solid var(--line);border-radius:10px;background:#fff;font-size:14px;font-weight:700}
+.ok{color:var(--win);font-weight:700;font-size:14px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>유니폼 투표 집계</h1>
-  <p class="sub">총무 전용입니다. 투표가 진행 중일 때는 회원에게 보여주지 마세요 —
-    중간 순위를 보면 뒤에 투표하는 사람이 끌려갑니다.</p>
+  <h1>관리자</h1>
+  <p class="sub">2027 유니폼 투표 · 집계와 정리</p>
 
-  <div class="key">
-    <input id="k" type="password" placeholder="관리 키" autocomplete="off">
-    <button id="load">불러오기</button>
+  <div class="gate" id="gate">
+    <label for="k">비밀번호</label>
+    <input id="k" type="password" inputmode="numeric" autocomplete="off" placeholder="····">
+    <button id="enter">들어가기</button>
+    <p class="err" id="gateErr" hidden></p>
   </div>
 
-  <div id="out"></div>
+  <div id="out" hidden></div>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
 const won = n => Number(n).toLocaleString();
+let KEY = '';
 
-// 번호가 명부와 달랐던 사람. 막지는 않았고 적어만 뒀다.
-function mismatchBlock(voters) {
-  const bad = voters.filter(v => v.codeOk === false);
-  if (!bad.length) return '';
-  return `<div class="card" style="margin-top:22px;border-color:#f0c0a0">
-    <h2>번호가 명부와 달랐던 ${bad.length}명</h2>
-    <p>투표는 그대로 받았습니다. 대부분 오타이거나 번호가 바뀐 경우입니다.
-       본인이 맞는지 확인하시고, 번호가 바뀌었으면 members.csv를 고쳐 주세요.</p>
-    <table style="margin-top:12px">
-      <thead><tr><th>이름</th><th>입력한 번호</th></tr></thead>
-      <tbody>${bad.map(v =>
-        `<tr><td>${v.voter}</td><td class="n">${v.code || '(빈칸)'}</td></tr>`).join('')}</tbody>
-    </table>
-  </div>`;
+async function api(path, opts) {
+  const sep = path.includes('?') ? '&' : '?';
+  const r = await fetch(path + sep + 'key=' + encodeURIComponent(KEY), opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || '요청이 실패했습니다.');
+  return j;
+}
+
+async function enter() {
+  KEY = $('k').value.trim();
+  if (!KEY) return;
+  try {
+    await load();
+    sessionStorage.setItem('kitKey', KEY);
+    $('gate').hidden = true;
+    $('out').hidden = false;
+  } catch (e) {
+    sessionStorage.removeItem('kitKey');
+    $('gateErr').textContent = e.message;
+    $('gateErr').hidden = false;
+  }
 }
 
 async function load() {
-  const key = $('k').value.trim();
-  if (!key) return;
-  localStorage.setItem('kitKey', key);
-  $('out').innerHTML = '불러오는 중…';
-  const r = await fetch('/api/results?key=' + encodeURIComponent(key));
-  if (!r.ok) { $('out').innerHTML = '<p class="err">관리 키가 맞지 않습니다.</p>'; return; }
-  const j = await r.json();
+  const j = await api('/api/results');
   const pts = Object.values(j.points);
+  const bad = j.voters.filter(v => v.codeOk === false);
 
   const rows = j.ranking.map((k, i) => `
     <tr class="${i < 5 ? 'top' : ''}">
       <td class="rank">${i + 1}</td>
-      <td>${k.name}<br><span style="color:#6b7280;font-size:13px">${k.vendor} · ${won(k.price)}원 · ${k.family}</span></td>
+      <td>${k.name}<br><span class="sm">${k.vendor} · ${won(k.price)}원 · ${k.family}</span></td>
       <td class="n">${k.score}</td>
       <td class="n">${k.first ? `<span class="win">${k.first}</span>` : '–'}</td>
       <td class="n">${k.picked}</td>
     </tr>`).join('');
 
+  const voterRows = j.voters.map(v => `
+    <tr>
+      <td>${v.voter}${v.codeOk === false
+        ? ` <span class="sm" style="color:#c2410c">번호 불일치 ${v.code || '(빈칸)'}</span>` : ''}</td>
+      <td class="sm">${new Date(v.at).toLocaleString('ko-KR')}</td>
+      <td class="n"><button class="del" data-del="${v.voter}">지우기</button></td>
+    </tr>`).join('');
+
   $('out').innerHTML = `
+    <div class="bar">
+      <button id="refresh">새로 불러오기</button>
+      <span class="sm">${new Date().toLocaleTimeString('ko-KR')} 기준</span>
+    </div>
+
     <div class="card">
       <h2>${j.round || '1차 투표'} · ${j.voters.length}명 참여</h2>
-      <p>한 사람이 ${j.picks}개를 고릅니다. 고른 순서가 순위이고,
-         점수는 ${pts.join(' · ')}점입니다.
-         한 사람이 한 디자인에 줄 수 있는 최대는 ${pts[0]}점입니다.<br>
-         <b>표시된 상위 5종이 결선 후보입니다.</b> 결선은 Render 환경변수에
-         <code>SHORTLIST</code>(후보 id)와 <code>PICKS=1</code>을 넣으면 같은 주소로 열립니다.</p>
+      <p>한 사람이 ${j.picks}개를 고릅니다. 고른 순서가 순위이고, 점수는 ${pts.join(' · ')}점입니다.<br>
+        <b>표시된 상위 5종이 결선 후보입니다.</b> 결선은 환경변수에
+        <code>SHORTLIST</code>와 <code>PICKS=1</code>을 넣으면 같은 주소로 열립니다.</p>
+      <p style="margin-top:10px"><b>결선 후보 id</b>
+        <code>${j.ranking.slice(0, 5).map(k => k.id).join(',')}</code></p>
     </div>
+
     <table>
       <thead><tr><th></th><th>디자인</th><th class="n">점수</th><th class="n">1순위</th><th class="n">득표</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
+
     <div class="card" style="margin-top:22px">
-      <h2>결선 후보 id (복사용)</h2>
-      <p><code>${j.ranking.slice(0, 5).map(k => k.id).join(',')}</code></p>
+      <h2>투표한 사람 ${j.voters.length}명${bad.length ? ` · 번호 불일치 ${bad.length}명` : ''}</h2>
+      <p>잘못 들어간 표는 여기서 한 건씩 지웁니다. 지운 사람은 다시 투표할 수 있습니다.</p>
+      ${j.voters.length ? `<table style="margin-top:12px">
+        <thead><tr><th>이름</th><th>시각</th><th></th></tr></thead>
+        <tbody>${voterRows}</tbody></table>` : '<p style="margin-top:10px">아직 없습니다.</p>'}
     </div>
-    <div class="voters"><b>투표한 사람 (${j.voters.length}명)</b><br>${
-      j.voters.map(v => v.voter).join(' · ') || '아직 없습니다'}</div>
-    ${mismatchBlock(j.voters)}`;
+
+    <div class="card danger">
+      <h2>전체 비우기</h2>
+      <p>투표를 전부 지웁니다. <b>되돌릴 수 없습니다.</b>
+         결선을 새로 시작할 때만 쓰세요. 한 건만 지울 거면 위에서 하시면 됩니다.</p>
+      <div class="row">
+        <input id="confirmText" placeholder="전체삭제 라고 입력">
+        <button id="wipe" disabled>전부 지우기</button>
+        <span class="ok" id="wipeMsg"></span>
+      </div>
+    </div>`;
+
+  $('refresh').addEventListener('click', load);
+  $('out').querySelectorAll('[data-del]').forEach(b => {
+    b.addEventListener('click', async () => {
+      const who = b.dataset.del;
+      if (!confirm(`${who} 님의 표를 지울까요? 되돌릴 수 없습니다.`)) return;
+      b.disabled = true;
+      try {
+        await api('/api/admin/delete', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ voter: who }),
+        });
+        await load();
+      } catch (e) { alert(e.message); b.disabled = false; }
+    });
+  });
+  $('confirmText').addEventListener('input', e => {
+    $('wipe').disabled = e.target.value.trim() !== '전체삭제';
+  });
+  $('wipe').addEventListener('click', async () => {
+    $('wipe').disabled = true;
+    try {
+      const r = await api('/api/reset?confirm=yes', { method: 'POST' });
+      $('wipeMsg').textContent = `${r.deleted}건을 지웠습니다.`;
+      await load();
+    } catch (e) { alert(e.message); }
+  });
 }
 
-$('load').addEventListener('click', load);
-$('k').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
-const saved = localStorage.getItem('kitKey');
-if (saved) { $('k').value = saved; load(); }
+$('enter').addEventListener('click', enter);
+$('k').addEventListener('keydown', e => { if (e.key === 'Enter') enter(); });
+const saved = sessionStorage.getItem('kitKey');
+if (saved) { $('k').value = saved; enter(); }
 </script>
 </body>
 </html>
