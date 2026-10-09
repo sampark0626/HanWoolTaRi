@@ -92,11 +92,16 @@ app.get('/api/config', (req, res) => {
 
 app.get('/api/status', async (req, res) => {
   const rows = await store.all();
-  res.json({ voters: rows.length, open: VOTE_OPEN });
+  const ready = !(process.env.RENDER && store.kind === 'memory');
+  res.json({ voters: rows.length, open: VOTE_OPEN && ready, ready });
 });
 
 app.post('/api/vote', async (req, res) => {
   if (!VOTE_OPEN) return res.status(403).json({ error: '투표가 마감되었습니다.' });
+  // 배포된 서버가 메모리에만 담고 있으면 재시작할 때 표가 전부 사라진다.
+  // 조용히 잃는 것보다 받지 않는 편이 낫다.
+  if (process.env.RENDER && store.kind === 'memory')
+    return res.status(503).json({ error: '아직 준비 중입니다. 총무에게 알려주세요. (DB 미연결)' });
   const voter = String((req.body && req.body.voter) || '').trim().replace(/\s+/g, ' ');
   const picks = (req.body && req.body.picks) || [];
   const champion = String((req.body && req.body.champion) || '');

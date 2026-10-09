@@ -1,6 +1,6 @@
 // 이상형 월드컵 진행. 대진은 서버(kits.js)가 내려준다.
 (() => {
-  const V = '3';   // 이미지를 교체하면 올린다 — 안 올리면 브라우저가 옛 그림을 계속 쓴다
+  const V = '4';   // 이미지를 교체하면 올린다 — 안 올리면 브라우저가 옛 그림을 계속 쓴다
   const $ = id => document.getElementById(id);
   const show = id => document.querySelectorAll('.screen')
     .forEach(s => s.classList.toggle('on', s.id === id));
@@ -31,7 +31,9 @@
       }
       if (!s.open) {
         $('go').disabled = true;
-        $('startErr').textContent = '투표가 마감되었습니다.';
+        $('startErr').textContent = s.ready === false
+          ? '아직 준비 중입니다. 조금 뒤에 다시 들어와 주세요.'
+          : '투표가 마감되었습니다.';
         $('startErr').hidden = false;
       }
     } catch (e) { /* 상태 조회 실패는 투표를 막지 않는다 */ }
