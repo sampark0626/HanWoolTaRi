@@ -1,6 +1,6 @@
 // 이상형 월드컵 진행. 대진은 서버(kits.js)가 내려준다.
 (() => {
-  const V = '8';   // 이미지를 교체하면 올린다 — 안 올리면 브라우저가 옛 그림을 계속 쓴다
+  const V = '9';   // 이미지를 교체하면 올린다 — 안 올리면 브라우저가 옛 그림을 계속 쓴다
   const $ = id => document.getElementById(id);
   const show = id => document.querySelectorAll('.screen')
     .forEach(s => s.classList.toggle('on', s.id === id));
@@ -12,7 +12,7 @@
   let picks = [];        // {round, winner, loser}
   let total = 0, played = 0;
   let voter = '';      // 제출용 명부 이름
-  let mark = '';       // 마킹에 찍히는 이름 (구분자 없는 본명)
+  let who = '';        // 화면에 쓰는 이름
 
   const ORDER = ['playin', 'r16', 'qf', 'sf', 'final'];
 
@@ -61,10 +61,17 @@
   function pick(v) {
     voter = v;
     const m = CFG.roster.find(x => x.v === v);
-    mark = (m && m.mark) || v;
+    who = (m && m.mark) || v;
+    if (CFG.needCode) { $('auth').hidden = false; $('code').focus(); }
     $('picked').textContent = `${m ? m.label : v} 님으로 투표합니다`;
     $('picked').hidden = false;
     $('go').disabled = false;
+    if (CFG.needCode && !/^\d{4}$/.test($('code').value.trim())) {
+      $('startErr').textContent = '전화번호 뒷 4자리를 넣어주세요.';
+      $('startErr').hidden = false;
+      $('code').focus();
+      return;
+    }
     $('startErr').hidden = true;
     buildNames();
   }
@@ -107,13 +114,10 @@
 
   // 유니폼 마킹 — 입력한 이름을 등판 네임플레이트처럼 보여준다.
   // 앞면 사진이라 가슴에는 이미 팀명이 박혀 있어 겹친다. 그래서 아래에 붙인다.
-  function setMark(el) { el.textContent = mark; }
-
   function fill(side, k) {
     $('img' + side).src = `/kits/${k.id}.jpg?v=${V}`;
     $('img' + side).alt = k.name;
     $('name' + side).textContent = k.name;
-    setMark($('plate' + side));
   }
 
   function choose(side) {
@@ -152,13 +156,12 @@
     $('champImg').src = `/kits/${k.id}.jpg?v=${V}`;
     $('champImg').alt = k.name;
     $('champName').textContent = k.name;
-    setMark($('plateC'));
 
     const rows = picks
       .filter(p => p.round !== 'playin')
       .map(p => `<li><b>${CFG.roundLabel[p.round]}</b>
         <span>${BY[p.winner].name} <s>${BY[p.loser].name}</s></span></li>`).join('');
-    $('path').innerHTML = `<h3>${mark}님이 고른 길</h3><ol>${rows}</ol>`;
+    $('path').innerHTML = `<h3>${who}님이 고른 길</h3><ol>${rows}</ol>`;
 
     $('submit').disabled = false;
     $('doneMsg').textContent = '';
@@ -174,7 +177,7 @@
       const r = await fetch('/api/vote', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ voter, picks, champion }),
+        body: JSON.stringify({ voter, picks, champion, code: $('code').value.trim() }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || '제출에 실패했습니다.');

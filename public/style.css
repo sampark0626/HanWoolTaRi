@@ -5,7 +5,7 @@
   --ink: #15181d;
   --mute: #6b7280;
   --line: #e5e7eb;
-  --bg: #ffffff;
+  --bg: #f1f3f5;
   --card: #f7f8fa;
   --accent: #15181d;
   --win: #0f8a4d;
@@ -31,7 +31,8 @@ body {
   padding: 40px 20px calc(40px + env(safe-area-inset-bottom));
   flex: 1; display: flex; flex-direction: column; justify-content: center;
 }
-#start .wrap { justify-content: flex-start; padding-top: 28px; }
+#start .wrap, #done .wrap { justify-content: flex-start; padding-top: 28px; }
+#start .wrap > *, #done .wrap > * { position: relative; z-index: 1; }
 
 .eyebrow { font-size: 15px; font-weight: 700; color: var(--mute); letter-spacing: .02em; }
 h1 { font-size: clamp(34px, 9vw, 48px); font-weight: 900; line-height: 1.15; letter-spacing: -.03em; margin: 10px 0 18px; }
@@ -47,11 +48,24 @@ h2 { font-size: clamp(26px, 7vw, 34px); font-weight: 900; letter-spacing: -.02em
   width: 100%; font: inherit; font-size: 19px; padding: 16px 18px;
   border: 2px solid var(--line); border-radius: 14px; background: #fff; color: inherit;
 }
+
+/* 본인 확인 */
+.auth { margin-top: 18px; padding: 16px; background: #fff;
+  border: 2px solid var(--line); border-radius: 14px; }
+.auth[hidden] { display: none; }
+.auth label { display: block; font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.auth input {
+  width: 140px; font: inherit; font-size: 24px; font-weight: 700;
+  letter-spacing: .32em; text-align: center; padding: 12px 10px 12px 18px;
+  border: 2px solid var(--line); border-radius: 12px; background: #fff; color: inherit;
+}
+.auth input:focus { outline: none; border-color: var(--accent); }
+.auth .why { font-size: 13px; color: var(--mute); margin-top: 10px; line-height: 1.5; }
 .field input:focus { outline: none; border-color: var(--accent); }
 
 /* 명부 — 50여 명을 한눈에 훑고 고른다 */
 .names {
-  margin-top: 10px; max-height: 44vh; overflow-y: auto;
+  margin-top: 10px; max-height: 40vh; overflow-y: auto; background: #fff;
   -webkit-overflow-scrolling: touch;
   border: 2px solid var(--line); border-radius: 14px; padding: 10px;
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
@@ -93,9 +107,16 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 /* ---- 대결 ---- */
 .bar {
   display: flex; align-items: center; gap: 12px;
-  padding: calc(14px + env(safe-area-inset-top)) 18px 12px;
+  padding: calc(13px + env(safe-area-inset-top)) 18px 11px;
   border-bottom: 1px solid var(--line); background: #fff;
   position: sticky; top: 0; z-index: 5;
+}
+.bar .brand { display: none; font-size: 15px; font-weight: 900; letter-spacing: -.02em; }
+@media (min-width: 760px) {
+  .bar { padding: 16px 28px; gap: 18px; }
+  .bar .brand { display: block; }
+  .bar .brand::after { content: ''; display: inline-block; width: 1px; height: 13px;
+    background: var(--line); margin: 0 4px 0 12px; vertical-align: -2px; }
 }
 .round { font-size: 17px; font-weight: 900; letter-spacing: -.01em; white-space: nowrap; }
 .count { font-size: 14px; font-weight: 700; color: var(--mute); white-space: nowrap; }
@@ -115,6 +136,9 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 /* 사진이 주인공이다. 글자는 사진 위에 얹어 자리를 뺏지 않는다. */
 .kit {
+  /* 사진 비율을 카드가 그대로 쓴다. 안 그러면 카드 안이 텅 빈다. */
+  aspect-ratio: 327 / 402; height: 100%; max-width: 100%;
+  justify-self: center;
   position: relative; min-height: 0; overflow: hidden; cursor: pointer;
   background: var(--card); border: 2px solid transparent; border-radius: 20px;
   box-shadow: var(--shadow);
@@ -131,7 +155,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   display: flex; align-items: center; justify-content: center;
   background: #fff; border-radius: 18px; overflow: hidden;
 }
-.shot img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.shot img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .shot.big { height: 420px; background: var(--card); border-radius: 18px; }
 
 /* 디자인 이름 — 사진 위, 배경 여백에 얹는다 */

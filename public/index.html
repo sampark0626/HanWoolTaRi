@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=8">
+<link rel="stylesheet" href="/style.css?v=9">
 </head>
 <body>
 
@@ -27,6 +27,13 @@
     </div>
     <p id="startErr" class="err" hidden></p>
 
+    <div id="auth" class="auth" hidden>
+      <label for="code">본인 확인 — 전화번호 뒷 4자리</label>
+      <input id="code" type="tel" inputmode="numeric" maxlength="4"
+             autocomplete="off" placeholder="0000">
+      <p class="why">다른 분 이름으로 투표되는 걸 막기 위한 것입니다.</p>
+    </div>
+
     <p id="picked" class="picked" hidden></p>
     <button id="go" class="primary" disabled>시작하기</button>
     <p class="note" id="statusNote">이미 투표하셨어도 다시 하시면 마지막 투표로 바뀝니다.</p>
@@ -36,6 +43,7 @@
 <!-- 2. 대결 -->
 <section id="duel" class="screen">
   <header class="bar">
+    <div class="brand">2027 한울타리 FC 유니폼</div>
     <div class="round" id="roundLabel">16강</div>
     <div class="prog"><i id="progBar"></i></div>
     <div class="count" id="matchCount">1 / 16</div>
@@ -46,7 +54,6 @@
       <div class="shot">
         <img id="imgA" alt="">
         <span class="tag" id="nameA"></span>
-        <span class="plate" id="plateA"></span>
       </div>
     </div>
     <div class="vs" aria-hidden="true">VS</div>
@@ -54,7 +61,6 @@
       <div class="shot">
         <img id="imgB" alt="">
         <span class="tag" id="nameB"></span>
-        <span class="plate" id="plateB"></span>
       </div>
     </div>
   </div>
@@ -67,10 +73,7 @@
   <div class="wrap">
     <p class="eyebrow">내가 뽑은 우승</p>
     <div class="champ">
-      <div class="shot big">
-        <img id="champImg" alt="">
-        <span class="plate" id="plateC"></span>
-      </div>
+      <div class="shot big"><img id="champImg" alt=""></div>
       <h2 id="champName"></h2>
     </div>
 
@@ -82,6 +85,6 @@
   </div>
 </section>
 
-<script src="/app.js?v=8"></script>
+<script src="/app.js?v=9"></script>
 </body>
 </html>

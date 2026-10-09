@@ -3,6 +3,7 @@
 // 저장: Postgres (DATABASE_URL). 없으면 메모리에 담고 경고한다 — 로컬 확인용이다.
 // 명부: ROSTER 환경변수(쉼표 구분). 코드에 회원 이름을 넣지 않는다.
 //       저장소가 공개되어도 명부가 따라 나가지 않게 하기 위해서다.
+const crypto = require('crypto');
 const express = require('express');
 const path = require('path');
 const { KITS, PLAYIN, ROUND16, POINTS, ROUND_LABEL } = require('./kits');
@@ -29,6 +30,36 @@ function markOf(n) {
 const ROSTER_VIEW = ROSTER.map(n => ({ v: n, label: LABELS[n] || n, mark: markOf(n) }))
   .sort((a, b) => a.label.localeCompare(b.label, 'ko'));
 const VOTE_OPEN = process.env.VOTE_OPEN !== 'false';
+
+// 본인 확인 — 전화번호 뒷 4자리. 번호 원본은 서버에 없다.
+// 소금과 함께 해시한 값만 들고 대조한다 (scripts/make_auth.py가 만든다).
+const AUTH_SALT = process.env.AUTH_SALT || '';
+const AUTH = Object.fromEntries(
+  (process.env.AUTH || '').split(',').map(s => s.trim()).filter(Boolean)
+    .map(s => { const i = s.lastIndexOf(':'); return [s.slice(0, i), s.slice(i + 1)]; }));
+const NEED_CODE = Object.keys(AUTH).length > 0;
+
+function codeOk(name, code) {
+  const want = AUTH[name];
+  if (!want) return true;          // 연락처가 없는 회원은 확인할 방법이 없다
+  const got = crypto.createHash('sha256')
+    .update(`${name}:${code}:${AUTH_SALT}`).digest('hex').slice(0, 20);
+  return crypto.timingSafeEqual(Buffer.from(got), Buffer.from(want));
+}
+
+// 4자리는 1만 가지뿐이다. 무작정 넣어보는 걸 막는다.
+const fails = new Map();
+function tooMany(k) {
+  const f = fails.get(k);
+  if (!f) return false;
+  if (Date.now() - f.at > 10 * 60 * 1000) { fails.delete(k); return false; }
+  return f.n >= 5;
+}
+function noteFail(k) {
+  const f = fails.get(k);
+  if (f && Date.now() - f.at <= 10 * 60 * 1000) { f.n += 1; f.at = Date.now(); }
+  else fails.set(k, { n: 1, at: Date.now() });
+}
 
 // ---------- 저장소 ----------
 let store;
@@ -110,6 +141,7 @@ app.get('/api/config', (req, res) => {
     playin: PLAYIN, round16: ROUND16,
     points: POINTS, roundLabel: ROUND_LABEL,
     roster: ROSTER_VIEW,
+    needCode: NEED_CODE,
   });
 });
 
@@ -133,6 +165,18 @@ app.post('/api/vote', async (req, res) => {
     return res.status(400).json({ error: '이름을 2~20자로 적어주세요.' });
   if (ROSTER.length && !ROSTER.includes(voter))
     return res.status(400).json({ error: '명부에 없는 이름입니다. 총무에게 문의해 주세요.' });
+
+  if (NEED_CODE) {
+    const code = String((req.body && req.body.code) || '').replace(/\D/g, '');
+    const bucket = voter + '|' + (req.ip || '');
+    if (tooMany(bucket))
+      return res.status(429).json({ error: '여러 번 틀렸습니다. 10분 뒤에 다시 해주세요.' });
+    if (code.length !== 4 || !codeOk(voter, code)) {
+      noteFail(bucket);
+      return res.status(403).json({ error: '전화번호 뒷 4자리가 맞지 않습니다.' });
+    }
+    fails.delete(bucket);
+  }
   if (!Array.isArray(picks) || !picks.length)
     return res.status(400).json({ error: '투표 내용이 비어 있습니다.' });
   if (!BY_ID[champion])
