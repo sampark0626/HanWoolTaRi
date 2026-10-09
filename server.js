@@ -13,6 +13,21 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: process.env.NOD
 
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
 const ROSTER = (process.env.ROSTER || '').split(',').map(s => s.trim()).filter(Boolean);
+// 동명이인은 명부에 최지훈S / 최지훈B처럼 들어 있다. 그대로 보여주면 본인도 헷갈린다.
+// ROSTER_LABELS로 화면에 쓸 이름을 따로 준다:  최지훈S=최지훈 (A조),최지훈B=최지훈 (B조)
+const LABELS = Object.fromEntries(
+  (process.env.ROSTER_LABELS || '').split(',').map(s => s.trim()).filter(Boolean)
+    .map(s => { const i = s.indexOf('='); return [s.slice(0, i).trim(), s.slice(i + 1).trim()]; })
+    .filter(([k, v]) => k && v));
+// 유니폼 마킹에 쓸 이름. 동명이인 구분자는 명부용이지 옷에 박을 글자가 아니다.
+//   최지훈S  → 최지훈     최지훈 (S) → 최지훈
+function markOf(n) {
+  const b = (LABELS[n] || n).replace(/\s*\([^)]*\)\s*$/, '').trim();
+  return /^[가-힣]{2,5}[A-Z]$/.test(b) ? b.slice(0, -1) : b;
+}
+// 가나다 순으로 내려보낸다. 화면에서 성씨별로 묶으려면 정렬돼 있어야 한다.
+const ROSTER_VIEW = ROSTER.map(n => ({ v: n, label: LABELS[n] || n, mark: markOf(n) }))
+  .sort((a, b) => a.label.localeCompare(b.label, 'ko'));
 const VOTE_OPEN = process.env.VOTE_OPEN !== 'false';
 
 // ---------- 저장소 ----------
@@ -94,7 +109,7 @@ app.get('/api/config', (req, res) => {
     kits: KITS.map(({ price, vendor, ...rest }) => rest),
     playin: PLAYIN, round16: ROUND16,
     points: POINTS, roundLabel: ROUND_LABEL,
-    roster: ROSTER,
+    roster: ROSTER_VIEW,
   });
 });
 

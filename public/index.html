@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=6">
+<link rel="stylesheet" href="/style.css?v=8">
 </head>
 <body>
 
@@ -20,14 +20,15 @@
     <p class="lead">후보 17종이 <b>비슷한 디자인끼리</b> 붙습니다.<br>
       마음에 드는 쪽을 눌러주세요. 16번이면 끝납니다.</p>
 
-    <label class="field">
-      <span>이름</span>
-      <input id="voter" type="text" autocomplete="off" placeholder="본인 이름을 적어주세요" list="roster">
-      <datalist id="roster"></datalist>
-    </label>
+    <div class="field">
+      <span>본인 이름을 골라주세요</span>
+      <input id="q" type="search" autocomplete="off" placeholder="많으면 여기에 한 글자만 쳐보세요">
+      <div id="names" class="names" role="listbox" aria-label="회원 명부"></div>
+    </div>
     <p id="startErr" class="err" hidden></p>
 
-    <button id="go" class="primary">시작하기</button>
+    <p id="picked" class="picked" hidden></p>
+    <button id="go" class="primary" disabled>시작하기</button>
     <p class="note" id="statusNote">이미 투표하셨어도 다시 하시면 마지막 투표로 바뀝니다.</p>
   </div>
 </section>
@@ -81,6 +82,6 @@
   </div>
 </section>
 
-<script src="/app.js?v=6"></script>
+<script src="/app.js?v=8"></script>
 </body>
 </html>
