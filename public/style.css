@@ -147,6 +147,34 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .slot.filled { background: #e8f5ee; color: #0b6b3c; }
 
+/* ---- 제출 직전 번호 확인 ---- */
+.sheet {
+  position: fixed; inset: 0; z-index: 30; background: rgba(12,14,17,.55);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.sheet[hidden] { display: none; }
+.sheetbox {
+  width: 100%; max-width: 460px; background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 24px 20px calc(22px + env(safe-area-inset-bottom));
+}
+.sheetbox h3 { font-size: 20px; font-weight: 900; letter-spacing: -.02em; }
+.sheetbox p { font-size: 15px; line-height: 1.6; color: var(--mute); margin: 8px 0 16px; }
+.sheetbox input {
+  width: 150px; font: inherit; font-size: 26px; font-weight: 700;
+  letter-spacing: .3em; text-align: center; padding: 13px 8px 13px 20px;
+  border: 2px solid var(--line); border-radius: 12px; margin-bottom: 18px;
+}
+.sheetbox input:focus { outline: none; border-color: var(--accent); }
+.plainlink {
+  display: block; width: 100%; margin-top: 14px; padding: 6px;
+  font-size: 15px; color: var(--mute); text-decoration: underline;
+}
+@media (min-width: 700px) {
+  .sheet { align-items: center; }
+  .sheetbox { border-radius: 20px; }
+}
+
 /* ---- 크게 보기 ---- */
 .zoom {
   position: fixed; inset: 0; z-index: 20; background: rgba(12,14,17,.94);

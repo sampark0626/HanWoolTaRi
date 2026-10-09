@@ -169,18 +169,6 @@ app.post('/api/vote', async (req, res) => {
   if (ROSTER.length && !ROSTER.includes(voter))
     return res.status(400).json({ error: '명부에 없는 이름입니다. 총무에게 문의해 주세요.' });
 
-  if (NEED_CODE) {
-    const code = String((req.body && req.body.code) || '').replace(/\D/g, '');
-    const bucket = voter + '|' + (req.ip || '');
-    if (tooMany(bucket))
-      return res.status(429).json({ error: '여러 번 틀렸습니다. 10분 뒤에 다시 해주세요.' });
-    if (code.length !== 4 || !codeOk(voter, code)) {
-      noteFail(bucket);
-      return res.status(403).json({ error: '전화번호 뒷 4자리가 맞지 않습니다.' });
-    }
-    fails.delete(bucket);
-  }
-
   if (!Array.isArray(picks) || picks.length !== want)
     return res.status(400).json({ error: `${want}개를 골라주세요.` });
   if (new Set(picks).size !== picks.length)
@@ -188,9 +176,35 @@ app.post('/api/vote', async (req, res) => {
   if (picks.some(id => !BALLOT_IDS.has(id)))
     return res.status(400).json({ error: '투표 내용이 올바르지 않습니다.' });
 
-  await store.put(voter, { picks, at: new Date().toISOString() });
+  // 본인 확인 — 틀렸다고 막지는 않는다 (총무 확인 2026-10-09).
+  // 한 번 되물어 오타를 잡아주고, 그래도 다르면 그대로 받고 번호만 남긴다.
+  let codeState = null, keep;
+  if (NEED_CODE) {
+    const code = String((req.body && req.body.code) || '').replace(/\D/g, '');
+    const known = Object.prototype.hasOwnProperty.call(AUTH, voter);
+    const ok = code.length === 4 && codeOk(voter, code);
+    const bucket = voter + '|' + (req.ip || '');
+
+    // 되묻는 것 자체가 「맞다/틀리다」를 알려주는 창구다. 5번이면 그만 되묻는다 —
+    // 안 그러면 1만 번 넣어보고 남의 번호 뒷자리를 알아낼 수 있다.
+    if (!ok && req.body.confirm !== true && !tooMany(bucket)) {
+      noteFail(bucket);
+      return res.json({ saved: false, mismatch: true });
+    }
+    // 맞혔을 때만 센 횟수를 지운다. 틀린 채로 통과해도 지우면
+    // 6번마다 5번씩 다시 물어볼 수 있어 제한이 없는 것과 같아진다.
+    if (ok) fails.delete(bucket);
+    codeState = known ? ok : null;
+    // 맞는 번호는 남기지 않는다. 틀린 것만 남긴다 — 총무가 확인할 수 있게.
+    keep = ok ? undefined : code;
+  }
+
+  await store.put(voter, {
+    picks, at: new Date().toISOString(),
+    codeOk: codeState, ...(keep ? { code: keep } : {}),
+  });
   const rows = await store.all();
-  res.json({ ok: true, voters: rows.length });
+  res.json({ ok: true, saved: true, voters: rows.length });
 });
 
 // 결과는 총무만 본다. 중간 순위가 보이면 뒤에 투표하는 사람이 끌려간다.
@@ -202,7 +216,11 @@ app.get('/api/results', async (req, res) => {
     picks: Math.min(PICKS, BALLOT.length),
     points: POINTS,
     round: ROUND_NAME,
-    voters: rows.map(r => ({ voter: r.voter, at: r.updated_at })),
+    voters: rows.map(r => ({
+      voter: r.voter, at: r.updated_at,
+      codeOk: r.payload && r.payload.codeOk,
+      code: r.payload && r.payload.code,
+    })),
     ranking: tally(rows),
   });
 });

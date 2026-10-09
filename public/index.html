@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=10">
+<link rel="stylesheet" href="/style.css?v=11">
 </head>
 <body>
 
@@ -54,6 +54,18 @@
   </footer>
 </section>
 
+<!-- 2-1. 제출 직전 번호 다시 확인 -->
+<div id="recheck" class="sheet" hidden>
+  <div class="sheetbox">
+    <h3>전화번호 뒷 4자리를 확인해 주세요</h3>
+    <p id="reMsg">입력하신 번호가 명부와 다릅니다. 오타가 아닌지 봐주세요.</p>
+    <input id="recode" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000">
+    <button id="reSubmit" class="primary">이 번호로 제출하기</button>
+    <button id="reForce" class="ghost">번호가 맞습니다. 그대로 제출</button>
+    <button id="reCancel" class="plainlink">돌아가기</button>
+  </div>
+</div>
+
 <!-- 3. 크게 보기 -->
 <div id="zoom" class="zoom" hidden>
   <button class="zclose" id="zclose" aria-label="닫기">✕</button>
@@ -78,6 +90,6 @@
   </div>
 </section>
 
-<script src="/app.js?v=10"></script>
+<script src="/app.js?v=11"></script>
 </body>
 </html>

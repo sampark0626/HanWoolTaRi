@@ -49,6 +49,22 @@ tr.top td:first-child{font-weight:900}
 const $ = id => document.getElementById(id);
 const won = n => Number(n).toLocaleString();
 
+// 번호가 명부와 달랐던 사람. 막지는 않았고 적어만 뒀다.
+function mismatchBlock(voters) {
+  const bad = voters.filter(v => v.codeOk === false);
+  if (!bad.length) return '';
+  return `<div class="card" style="margin-top:22px;border-color:#f0c0a0">
+    <h2>번호가 명부와 달랐던 ${bad.length}명</h2>
+    <p>투표는 그대로 받았습니다. 대부분 오타이거나 번호가 바뀐 경우입니다.
+       본인이 맞는지 확인하시고, 번호가 바뀌었으면 members.csv를 고쳐 주세요.</p>
+    <table style="margin-top:12px">
+      <thead><tr><th>이름</th><th>입력한 번호</th></tr></thead>
+      <tbody>${bad.map(v =>
+        `<tr><td>${v.voter}</td><td class="n">${v.code || '(빈칸)'}</td></tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
 async function load() {
   const key = $('k').value.trim();
   if (!key) return;
@@ -86,7 +102,8 @@ async function load() {
       <p><code>${j.ranking.slice(0, 5).map(k => k.id).join(',')}</code></p>
     </div>
     <div class="voters"><b>투표한 사람 (${j.voters.length}명)</b><br>${
-      j.voters.map(v => v.voter).join(' · ') || '아직 없습니다'}</div>`;
+      j.voters.map(v => v.voter).join(' · ') || '아직 없습니다'}</div>
+    ${mismatchBlock(j.voters)}`;
 }
 
 $('load').addEventListener('click', load);

@@ -2,7 +2,7 @@
 // 고른 순서가 곧 순위다 — 1순위 3점, 2순위 2점, 3순위 1점.
 // 대진표는 걷어냈다. 붙는 상대에 따라 결과가 흔들려 공정한 비교가 안 됐다.
 (() => {
-  const V = '10';          // 이미지를 교체하면 올린다 — 안 올리면 옛 그림이 남는다
+  const V = '11';          // 이미지를 교체하면 올린다 — 안 올리면 옛 그림이 남는다
   const $ = id => document.getElementById(id);
   const show = id => document.querySelectorAll('.screen')
     .forEach(s => s.classList.toggle('on', s.id === id));
@@ -148,16 +148,31 @@
   const step = d => { zi = (zi + d + CFG.kits.length) % CFG.kits.length; paintZoom(); };
 
   // ---------- 제출 ----------
-  async function submit() {
-    $('submit').disabled = true;
-    $('submit').textContent = '보내는 중…';
+  // 번호가 다르면 막지 않고 한 번 되묻는다. 그래도 다르면 그대로 받고 번호만 남긴다.
+  async function submit(force) {
+    const btn = force === undefined ? $('submit') : $('reSubmit');
+    btn.disabled = true;
+    const was = btn.textContent;
+    btn.textContent = '보내는 중…';
     try {
+      const code = ($('recheck').hidden ? $('code').value : $('recode').value).trim();
       const r = await fetch('/api/vote', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ voter, picks, code: $('code').value.trim() }),
+        body: JSON.stringify({ voter, picks, code, confirm: force === true }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || '제출에 실패했습니다.');
+      if (j.mismatch) {                 // 저장 안 됨 — 번호를 다시 묻는다
+        $('recode').value = code;
+        $('reMsg').textContent = '입력하신 번호가 명부와 다릅니다. 오타가 아닌지 봐주세요.';
+        $('recheck').hidden = false;
+        document.body.style.overflow = 'hidden';
+        btn.disabled = false; btn.textContent = was;
+        $('recode').focus();
+        return;
+      }
+      $('recheck').hidden = true;
+      document.body.style.overflow = '';
       $('doneLead').textContent = `${need()}개를 보내주셨습니다.`;
       $('mylist').innerHTML = picks.map((id, i) => `
         <div class="mine">
@@ -169,8 +184,8 @@
         `지금까지 ${j.voters}명이 투표했습니다. 창을 닫으셔도 됩니다.`;
       show('done'); window.scrollTo(0, 0);
     } catch (e) {
-      $('submit').textContent = '제출하기';
-      $('submit').disabled = false;
+      btn.textContent = was;
+      btn.disabled = false;
       alert(e.message);
     }
   }
@@ -202,7 +217,13 @@
     if (e.key === 'ArrowRight') step(1);
   });
 
-  $('submit').addEventListener('click', submit);
+  $('submit').addEventListener('click', () => submit());
+  $('reSubmit').addEventListener('click', () => submit());
+  $('reForce').addEventListener('click', () => submit(true));
+  $('reCancel').addEventListener('click', () => {
+    $('recheck').hidden = true; document.body.style.overflow = '';
+  });
+  $('recode').addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
   $('again').addEventListener('click', () => { show('choose'); window.scrollTo(0, 0); });
 
   boot();
