@@ -19,16 +19,22 @@ const VOTE_OPEN = process.env.VOTE_OPEN !== 'false';
 let store;
 if (process.env.DATABASE_URL) {
   const { Pool } = require('pg');
+  // Render는 내부 주소(dpg-xxxx-a)와 외부 주소(*.render.com)를 둘 다 준다.
+  // 내부 연결은 SSL을 쓰지 않는다 — 켜면 "server does not support SSL"로 죽는다.
+  const external = /\.render\.com|\.rds\.|sslmode=require/.test(process.env.DATABASE_URL);
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl: external ? { rejectUnauthorized: false } : false,
   });
+  pool.on('error', e => console.error('[DB] 연결 오류:', e.message));
   const ready = pool.query(`
     create table if not exists votes (
       voter      text primary key,
       payload    jsonb       not null,
       updated_at timestamptz not null default now()
-    )`);
+    )`).then(
+      () => console.log('[DB] 연결 완료 (%s)', external ? '외부 주소·SSL' : '내부 주소'),
+      e  => { console.error('[DB] 준비 실패:', e.message); throw e; });
   store = {
     kind: 'postgres',
     async put(voter, payload) {
