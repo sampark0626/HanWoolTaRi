@@ -1,6 +1,6 @@
 // 이상형 월드컵 진행. 대진은 서버(kits.js)가 내려준다.
 (() => {
-  const V = '9';   // 이미지를 교체하면 올린다 — 안 올리면 브라우저가 옛 그림을 계속 쓴다
+  const V = '11';  // 이미지를 교체하면 올린다 — 안 올리면 브라우저가 옛 그림을 계속 쓴다
   const $ = id => document.getElementById(id);
   const show = id => document.querySelectorAll('.screen')
     .forEach(s => s.classList.toggle('on', s.id === id));
@@ -118,6 +118,9 @@
     $('img' + side).src = `/kits/${k.id}.jpg?v=${V}`;
     $('img' + side).alt = k.name;
     $('name' + side).textContent = k.name;
+    if (window.Kit3D) {
+      window.Kit3D.mountSlot(side, $('shot' + side), k.id, who);
+    }
   }
 
   function choose(side) {
@@ -133,6 +136,7 @@
 
     setTimeout(() => {
       queue.shift();
+      if (window.Kit3D) window.Kit3D.resetFront();
       if (queue.length) return render();
 
       if (round === 'final') return finish(winner);
@@ -156,6 +160,9 @@
     $('champImg').src = `/kits/${k.id}.jpg?v=${V}`;
     $('champImg').alt = k.name;
     $('champName').textContent = k.name;
+    if (window.Kit3D) {
+      window.Kit3D.mountSlot('Champ', $('champShot'), k.id, who);
+    }
 
     const rows = picks
       .filter(p => p.round !== 'playin')
@@ -190,19 +197,42 @@
     }
   }
 
-  // 3D 틸트 — 포인터를 따라 살짝 기운다
+  // 3D 드래그 회전 및 선택 이벤트
   for (const id of ['kitA', 'kitB']) {
     const el = $(id);
-    el.addEventListener('pointermove', e => {
-      const r = el.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width - .5;
-      const y = (e.clientY - r.top) / r.height - .5;
-      el.style.transform = `rotateY(${x * 7}deg) rotateX(${-y * 7}deg) translateZ(6px)`;
+    if (window.Kit3D) window.Kit3D.bindCard(el);
+    el.addEventListener('click', e => {
+      if (e.target.closest('.pick-btn')) {
+        choose(id.slice(-1));
+        return;
+      }
+      if (window.Kit3D && window.Kit3D.wasDragged()) return;
+      choose(id.slice(-1));
     });
-    el.addEventListener('pointerleave', () => { el.style.transform = ''; });
-    el.addEventListener('click', () => { el.style.transform = ''; choose(id.slice(-1)); });
     el.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(id.slice(-1)); }
+    });
+  }
+  if (window.Kit3D && $('champShot')) {
+    window.Kit3D.bindCard($('champShot'));
+  }
+
+  document.querySelectorAll('.rot-btn[data-angle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (window.Kit3D) window.Kit3D.setAngleDeg(Number(btn.dataset.angle));
+    });
+  });
+  if ($('rotAutoBtn')) {
+    $('rotAutoBtn').addEventListener('click', () => {
+      if (window.Kit3D) window.Kit3D.toggleAutoRotate();
+    });
+  }
+  if ($('toggleModeBtn')) {
+    $('toggleModeBtn').addEventListener('click', () => {
+      if (window.Kit3D) {
+        const cur = window.Kit3D.getState().mode3D;
+        window.Kit3D.setMode3D(!cur);
+      }
     });
   }
 

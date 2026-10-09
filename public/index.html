@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=9">
+<link rel="stylesheet" href="/style.css?v=11">
 </head>
 <body>
 
@@ -18,7 +18,7 @@
     <p class="eyebrow">2027 시즌</p>
     <h1>한울타리 FC<br>유니폼 투표</h1>
     <p class="lead">후보 17종이 <b>비슷한 디자인끼리</b> 붙습니다.<br>
-      마음에 드는 쪽을 눌러주세요. 16번이면 끝납니다.</p>
+      3D 실착 모습을 좌우로 돌려 비교해 보고 마음에 드는 쪽을 골라주세요.</p>
 
     <div class="field">
       <span>본인 이름을 골라주세요</span>
@@ -49,23 +49,37 @@
     <div class="count" id="matchCount">1 / 16</div>
   </header>
 
+  <div class="rot-bar" role="toolbar" aria-label="3D 각도 및 보기 모드">
+    <span class="rot-tip">↔ 좌우로 밀어 360° 회전</span>
+    <div class="rot-btns">
+      <button type="button" class="rot-btn on" data-angle="0">정면</button>
+      <button type="button" class="rot-btn" data-angle="45">45°</button>
+      <button type="button" class="rot-btn" data-angle="90">측면</button>
+      <button type="button" class="rot-btn" data-angle="180">후면(등판)</button>
+      <button type="button" class="rot-btn" id="rotAutoBtn">자동회전</button>
+      <button type="button" class="rot-btn mode-btn" id="toggleModeBtn">2D 사진 보기</button>
+    </div>
+  </div>
+
   <div class="arena">
     <div class="kit" id="kitA" role="button" tabindex="0">
-      <div class="shot">
+      <div class="shot" id="shotA">
         <img id="imgA" alt="">
         <span class="tag" id="nameA"></span>
+        <button type="button" class="pick-btn" data-side="A">이 유니폼 선택 ✓</button>
       </div>
     </div>
     <div class="vs" aria-hidden="true">VS</div>
     <div class="kit" id="kitB" role="button" tabindex="0">
-      <div class="shot">
+      <div class="shot" id="shotB">
         <img id="imgB" alt="">
         <span class="tag" id="nameB"></span>
+        <button type="button" class="pick-btn" data-side="B">이 유니폼 선택 ✓</button>
       </div>
     </div>
   </div>
 
-  <footer class="hint">누르면 다음 경기로 넘어갑니다</footer>
+  <footer class="hint">캐릭터를 좌우로 밀면 두 유니폼이 함께 돌아갑니다 · 하단 버튼 또는 탭으로 선택</footer>
 </section>
 
 <!-- 3. 결과 -->
@@ -73,7 +87,7 @@
   <div class="wrap">
     <p class="eyebrow">내가 뽑은 우승</p>
     <div class="champ">
-      <div class="shot big"><img id="champImg" alt=""></div>
+      <div class="shot big" id="champShot"><img id="champImg" alt=""></div>
       <h2 id="champName"></h2>
     </div>
 
@@ -85,6 +99,7 @@
   </div>
 </section>
 
-<script src="/app.js?v=9"></script>
+<script src="/player3d.js?v=11"></script>
+<script src="/app.js?v=11"></script>
 </body>
 </html>

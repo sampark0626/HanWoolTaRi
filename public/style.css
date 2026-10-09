@@ -153,20 +153,75 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .shot {
   position: relative; height: 100%; width: 100%;
   display: flex; align-items: center; justify-content: center;
-  background: #fff; border-radius: 18px; overflow: hidden;
+  background: radial-gradient(circle at 50% 36%, #f2f4f8 0%, #dfe3ec 100%);
+  border-radius: 18px; overflow: hidden;
+  touch-action: pan-y;
+  user-select: none;
 }
 .shot img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.shot.big { height: 420px; background: var(--card); border-radius: 18px; }
+.shot.big { height: 420px; background: radial-gradient(circle at 50% 36%, #f2f4f8 0%, #dfe3ec 100%); border-radius: 18px; }
+
+.kit3d-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+  cursor: grab;
+}
+.kit3d-canvas:active { cursor: grabbing; }
+body:not(.mode-2d) .shot img {
+  opacity: 0; pointer-events: none; position: absolute;
+}
+body.mode-2d .kit3d-canvas {
+  display: none;
+}
+
+/* 3D 각도 컨트롤 바 */
+.rot-bar {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+  gap: 8px 12px; padding: 7px 12px;
+  background: #fff; border-bottom: 1px solid var(--line);
+}
+.rot-tip {
+  font-size: 13px; font-weight: 700; color: var(--mute);
+}
+.rot-btns {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+}
+.rot-btn {
+  padding: 5px 11px;
+  font-size: 13px; font-weight: 700; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 99px;
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.rot-btn:hover { border-color: #c3c7cd; }
+.rot-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rot-btn.mode-btn { background: #fff; border-color: #cbd5e1; color: #334155; }
 
 /* 디자인 이름 — 사진 위, 배경 여백에 얹는다 */
 .tag {
   position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  z-index: 3;
   max-width: 88%; padding: 5px 14px;
   background: rgba(255,255,255,.92); color: var(--ink);
   border-radius: 99px; font-size: 15px; font-weight: 900; letter-spacing: -.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  pointer-events: none;
 }
+
+/* 유니폼 선택 버튼 — 회전 드래그와 선택을 명확히 구분 */
+.pick-btn {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  z-index: 3;
+  padding: 8px 20px;
+  background: rgba(21,24,29,.90); color: #fff;
+  border-radius: 99px; font-size: 14px; font-weight: 700; letter-spacing: -.01em;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+  transition: background .15s ease, transform .12s ease;
+}
+.pick-btn:hover { background: var(--win); }
+.pick-btn:active { transform: translateX(-50%) scale(.96); }
 
 /* 마킹 — 등판 네임플레이트처럼. 글자 사이를 벌려야 마킹처럼 보인다. */
 .plate {
