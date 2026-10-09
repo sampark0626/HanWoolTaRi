@@ -106,6 +106,17 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .shot img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; display: block; }
 .shot.big { height: 300px; }
 
+/* 마킹 — 등판 네임플레이트처럼. 글자 사이를 벌려야 유니폼 마킹처럼 보인다. */
+.plate {
+  flex: none; align-self: center;
+  max-width: 92%; padding: 5px 16px;
+  background: #15181d; color: #fff; border-radius: 6px;
+  font-size: 15px; font-weight: 900; letter-spacing: .22em; text-indent: .22em;
+  line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.plate:empty { display: none; }
+.shot.big + .plate { margin: 14px auto 0; font-size: 17px; padding: 7px 20px; }
+
 .meta { display: flex; flex-direction: column; gap: 2px; padding-bottom: 2px; }
 .meta strong { font-size: 18px; font-weight: 900; letter-spacing: -.01em; }
 .meta span { font-size: 14px; color: var(--mute); }

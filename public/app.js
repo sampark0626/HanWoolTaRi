@@ -1,6 +1,6 @@
 // 이상형 월드컵 진행. 대진은 서버(kits.js)가 내려준다.
 (() => {
-  const V = '4';   // 이미지를 교체하면 올린다 — 안 올리면 브라우저가 옛 그림을 계속 쓴다
+  const V = '5';   // 이미지를 교체하면 올린다 — 안 올리면 브라우저가 옛 그림을 계속 쓴다
   const $ = id => document.getElementById(id);
   const show = id => document.querySelectorAll('.screen')
     .forEach(s => s.classList.toggle('on', s.id === id));
@@ -76,11 +76,16 @@
     }
   }
 
+  // 유니폼 마킹 — 입력한 이름을 등판 네임플레이트처럼 보여준다.
+  // 앞면 사진이라 가슴에는 이미 팀명이 박혀 있어 겹친다. 그래서 아래에 붙인다.
+  function mark(el) { el.textContent = voter; }
+
   function fill(side, k) {
     $('img' + side).src = `/kits/${k.id}.jpg?v=${V}`;
     $('img' + side).alt = k.name;
     $('name' + side).textContent = k.name;
     $('sub' + side).textContent = `${k.vendor} · ${k.price.toLocaleString()}원`;
+    mark($('plate' + side));
   }
 
   function choose(side) {
@@ -120,6 +125,7 @@
     $('champImg').alt = k.name;
     $('champName').textContent = k.name;
     $('champSub').textContent = `${k.vendor} · ${k.price.toLocaleString()}원`;
+    mark($('plateC'));
 
     const rows = picks
       .filter(p => p.round !== 'playin')
