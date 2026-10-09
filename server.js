@@ -89,7 +89,9 @@ function tally(rows) {
 app.get('/api/config', (req, res) => {
   res.json({
     open: VOTE_OPEN,
-    kits: KITS,
+    // 가격은 디자인 선택에 영향을 준다 (총무 확인 2026-10-09).
+    // 화면에 안 쓰는 게 아니라 아예 내려보내지 않는다.
+    kits: KITS.map(({ price, vendor, ...rest }) => rest),
     playin: PLAYIN, round16: ROUND16,
     points: POINTS, roundLabel: ROUND_LABEL,
     roster: ROSTER,
