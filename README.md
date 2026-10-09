@@ -46,31 +46,42 @@ ROSTER.txt         명부 이름 (환경변수에 넣을 값, 저장소에 올�
 > 동명이인 주의 — 이름이 투표자 식별자다. 같은 이름이 둘이면 뒤에 투표한 사람이
 > 앞사람을 덮어쓴다. 동명이인이 있으면 `홍길동A` / `홍길동B`처럼 갈라서 `ROSTER`에 넣는다.
 
-## 배포 (Render)
+## 배포 (Render) — 이미 되어 있다
 
-Render는 **Git 저장소**에서만 배포한다. 순서는 이렇다.
+| | |
+|---|---|
+| 투표 링크 | **https://hanultari-vote.onrender.com** |
+| 집계 (총무만) | https://hanultari-vote.onrender.com/results.html |
+| 서비스 대시보드 | https://dashboard.render.com/web/srv-db4bqmcs728c73a91o4g |
+| DB 대시보드 | https://dashboard.render.com/d/dpg-db4bq1142hec73apl730-a |
 
-1. **이 `vote/` 폴더만** 새 저장소로 만든다. 상위 `Chongmu` 폴더에서 `git init`을 하면
-   회계 장부와 명부가 통째로 올라간다. **반드시 `vote/` 안에서 한다.**
-   ```bash
-   cd vote
-   git init && git add . && git commit -m "유니폼 투표"
-   ```
-2. GitHub에 **비공개(private)** 저장소를 만들고 push 한다.
-3. Render → New → Web Service → 그 저장소 선택
-   - Runtime `Node` · Build `npm install` · Start `npm start`
-4. Render → New → Postgres 를 만들고, 그 **Internal Database URL**을
-   웹 서비스의 `DATABASE_URL` 환경변수에 넣는다.
-5. `ADMIN_KEY`, `ROSTER` 환경변수를 넣는다. (`ROSTER` 값은 `ROSTER.txt`)
-6. 배포되면 `https://<이름>.onrender.com` 이 나온다. 이 링크를 공지방에 올린다.
-   집계는 `https://<이름>.onrender.com/results.html` — **총무만 본다.**
+`main`에 push하면 자동으로 다시 배포된다.
+
+### 남은 설정 한 가지 — `DATABASE_URL`
+
+DB 비밀번호는 API로 안 나와서 **직접 한 번 넣어야 한다.**
+넣기 전까지는 투표가 막혀 있다 (표를 조용히 잃는 것보다 낫다).
+
+1. DB 대시보드 → **Internal Database URL** 복사
+2. 서비스 대시보드 → Environment → Add Environment Variable
+   - Key `DATABASE_URL` / Value 붙여넣기
+3. 저장하면 자동으로 다시 뜬다. 1~2분 뒤 투표 링크를 열어 시작 버튼이 눌리면 완료.
+
+### 이미 들어가 있는 환경변수
+
+| 이름 | 값 |
+|---|---|
+| `NODE_ENV` | `production` |
+| `ADMIN_KEY` | `hanul-2027-chongmu-91xK` — 집계 화면 열쇠. 회원에게 주지 않는다 |
+| `ROSTER` | 회원 56명. 명부에 없는 이름은 투표가 막힌다 |
+| `VOTE_OPEN` | `true` — 마감할 때 `false`로 바꾼다 |
 
 ### 알아둘 것
 
-- **무료 플랜은 15분 놀면 잠든다.** 다시 열 때 30초쯤 걸린다. 57명이 몰리는 투표라면
-  유료(Starter)로 올리거나, 공지에 "처음 열 때 조금 느릴 수 있습니다"를 적어두면 된다.
-- **무료 Postgres는 30일 뒤 삭제된다.** 2주짜리 투표에는 충분하지만,
-  투표가 끝나면 집계 화면을 캡처해 두는 편이 안전하다.
+- **무료 플랜은 15분 놀면 잠든다.** 그날 첫 사람은 30초쯤 기다린다.
+  57명이 몰리는 투표라면 Starter로 올리거나, 공지에 한 줄 적어두면 된다.
+- **무료 Postgres는 2026-11-08에 삭제된다.** 그 전에 투표를 끝내고
+  집계 화면을 캡처해 둔다. 더 오래 쓸 거면 유료로 올린다.
 
 ## 로컬에서 보기
 
