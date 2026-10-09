@@ -38,26 +38,11 @@ const KITS = [
   { id: 'kirinco-mint',  name: '민트 카라',        vendor: 'KIRINCO 커스텀', price: 35000, family: '하늘색 클래식', url: '' },
 ];
 
-// 17종이라 2의 거듭제곱이 아니다. 「하늘색 클래식」 계열만 3종이므로
-// 그 계열에서 예선 1경기를 치러 16강을 채운다.
-const PLAYIN = ['kirinco-navy', 'kirinco-mint'];
+// 고른 순서가 곧 순위다. 1순위 3점 · 2순위 2점 · 3순위 1점 (PICKS=3일 때).
+// 대진표(이상형 월드컵)는 걷어냈다 — 붙는 상대에 따라 결과가 흔들려서
+// 디자인끼리 공정하게 비교가 안 됐다 (총무 확인 2026-10-09).
+function pointsFor(picks) {
+  return Object.fromEntries(Array.from({ length: picks }, (_, i) => [i, picks - i]));
+}
 
-// 16강 대진. 'W'는 예선 승자 자리.
-const ROUND16 = [
-  ['nebula', 'solar'],
-  ['aero', 'wave'],
-  ['football', 'fantasista'],
-  ['element', 'kirinco-white'],
-  ['helix', 'doubleteam'],
-  ['zenith', 'kirinco-teal'],
-  ['legion', 'kirinco-black'],
-  ['blueshield', 'W'],
-];
-
-// 단계별 진출 점수. 예선은 16강 자리를 채우는 경기라 점수를 주지 않는다 —
-// 주면 예선을 거친 디자인만 최대 점수가 높아져 불공평해진다.
-const POINTS = { playin: 0, r16: 2, qf: 3, sf: 5, final: 8 };
-
-const ROUND_LABEL = { playin: '예선', r16: '16강', qf: '8강', sf: '4강', final: '결승' };
-
-module.exports = { KITS, PLAYIN, ROUND16, POINTS, ROUND_LABEL };
+module.exports = { KITS, pointsFor };

@@ -4,102 +4,80 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>2027 한울타리 FC 유니폼 투표</title>
-<meta name="description" content="2027 시즌 유니폼을 이상형 월드컵으로 고릅니다.">
+<meta name="description" content="2027 시즌 유니폼을 회원 투표로 정합니다.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=11">
+<link rel="stylesheet" href="/style.css?v=10">
 </head>
 <body>
 
-<!-- 1. 시작 -->
+<!-- 1. 이름 고르기 -->
 <section id="start" class="screen on">
   <div class="wrap">
-    <p class="eyebrow">2027 시즌</p>
+    <p class="eyebrow" id="roundTag">2027 시즌</p>
     <h1>한울타리 FC<br>유니폼 투표</h1>
-    <p class="lead">후보 17종이 <b>비슷한 디자인끼리</b> 붙습니다.<br>
-      3D 실착 모습을 좌우로 돌려 비교해 보고 마음에 드는 쪽을 골라주세요.</p>
+    <p class="lead" id="intro">마음에 드는 디자인을 골라주세요.</p>
 
     <div class="field">
       <span>본인 이름을 골라주세요</span>
       <input id="q" type="search" autocomplete="off" placeholder="많으면 여기에 한 글자만 쳐보세요">
       <div id="names" class="names" role="listbox" aria-label="회원 명부"></div>
     </div>
-    <p id="startErr" class="err" hidden></p>
 
     <div id="auth" class="auth" hidden>
       <label for="code">본인 확인 — 전화번호 뒷 4자리</label>
-      <input id="code" type="tel" inputmode="numeric" maxlength="4"
-             autocomplete="off" placeholder="0000">
+      <input id="code" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000">
       <p class="why">다른 분 이름으로 투표되는 걸 막기 위한 것입니다.</p>
     </div>
 
+    <p id="startErr" class="err" hidden></p>
     <p id="picked" class="picked" hidden></p>
     <button id="go" class="primary" disabled>시작하기</button>
     <p class="note" id="statusNote">이미 투표하셨어도 다시 하시면 마지막 투표로 바뀝니다.</p>
   </div>
 </section>
 
-<!-- 2. 대결 -->
-<section id="duel" class="screen">
+<!-- 2. 디자인 고르기 -->
+<section id="choose" class="screen">
   <header class="bar">
-    <div class="brand">2027 한울타리 FC 유니폼</div>
-    <div class="round" id="roundLabel">16강</div>
-    <div class="prog"><i id="progBar"></i></div>
-    <div class="count" id="matchCount">1 / 16</div>
+    <div class="brand">2027 한울타리 FC</div>
+    <div class="round" id="pickLabel">3개를 골라주세요</div>
+    <div class="count" id="pickCount">0 / 3</div>
   </header>
 
-  <div class="rot-bar" role="toolbar" aria-label="3D 각도 및 보기 모드">
-    <span class="rot-tip">↔ 좌우로 밀어 360° 회전</span>
-    <div class="rot-btns">
-      <button type="button" class="rot-btn on" data-angle="0">정면</button>
-      <button type="button" class="rot-btn" data-angle="45">45°</button>
-      <button type="button" class="rot-btn" data-angle="90">측면</button>
-      <button type="button" class="rot-btn" data-angle="180">후면(등판)</button>
-      <button type="button" class="rot-btn" id="rotAutoBtn">자동회전</button>
-      <button type="button" class="rot-btn mode-btn" id="toggleModeBtn">2D 사진 보기</button>
-    </div>
-  </div>
+  <div id="grid" class="grid"></div>
 
-  <div class="arena">
-    <div class="kit" id="kitA" role="button" tabindex="0">
-      <div class="shot" id="shotA">
-        <img id="imgA" alt="">
-        <span class="tag" id="nameA"></span>
-        <button type="button" class="pick-btn" data-side="A">이 유니폼 선택 ✓</button>
-      </div>
-    </div>
-    <div class="vs" aria-hidden="true">VS</div>
-    <div class="kit" id="kitB" role="button" tabindex="0">
-      <div class="shot" id="shotB">
-        <img id="imgB" alt="">
-        <span class="tag" id="nameB"></span>
-        <button type="button" class="pick-btn" data-side="B">이 유니폼 선택 ✓</button>
-      </div>
-    </div>
-  </div>
-
-  <footer class="hint">캐릭터를 좌우로 밀면 두 유니폼이 함께 돌아갑니다 · 하단 버튼 또는 탭으로 선택</footer>
+  <footer class="dock">
+    <div class="slots" id="slots"></div>
+    <button id="submit" class="primary" disabled>제출하기</button>
+  </footer>
 </section>
 
-<!-- 3. 결과 -->
+<!-- 3. 크게 보기 -->
+<div id="zoom" class="zoom" hidden>
+  <button class="zclose" id="zclose" aria-label="닫기">✕</button>
+  <button class="znav zprev" id="zprev" aria-label="이전">‹</button>
+  <img id="zimg" alt="">
+  <button class="znav znext" id="znext" aria-label="다음">›</button>
+  <div class="zbar">
+    <strong id="zname"></strong>
+    <button id="zpick" class="zpick">고르기</button>
+  </div>
+</div>
+
+<!-- 4. 끝 -->
 <section id="done" class="screen">
   <div class="wrap">
-    <p class="eyebrow">내가 뽑은 우승</p>
-    <div class="champ">
-      <div class="shot big" id="champShot"><img id="champImg" alt=""></div>
-      <h2 id="champName"></h2>
-    </div>
-
-    <div id="path" class="path"></div>
-
-    <button id="submit" class="primary">이 결과로 제출하기</button>
-    <button id="again" class="ghost">다시 고르기</button>
+    <p class="eyebrow">제출 완료</p>
+    <h2>고맙습니다</h2>
+    <p class="lead" id="doneLead"></p>
+    <div id="mylist" class="mylist"></div>
     <p id="doneMsg" class="note"></p>
+    <button id="again" class="ghost">다시 고르기</button>
   </div>
 </section>
 
-<script src="/player3d.js?v=11"></script>
-<script src="/app.js?v=11"></script>
+<script src="/app.js?v=10"></script>
 </body>
 </html>

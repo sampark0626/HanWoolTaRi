@@ -20,6 +20,7 @@ th,td{padding:12px 10px;text-align:left;border-bottom:1px solid #eef0f3}
 th{font-size:13px;color:#6b7280;font-weight:700;white-space:nowrap}
 td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 tr.top td{background:#f6fbf8}
+code{background:#f1f3f5;padding:3px 7px;border-radius:6px;font-size:14px}
 tr.top td:first-child{font-weight:900}
 .rank{width:34px;color:#6b7280;font-weight:700}
 .win{display:inline-block;min-width:22px;padding:1px 7px;border-radius:99px;background:#0f8a4d;color:#fff;font-size:13px;font-weight:700;text-align:center}
@@ -56,31 +57,36 @@ async function load() {
   const r = await fetch('/api/results?key=' + encodeURIComponent(key));
   if (!r.ok) { $('out').innerHTML = '<p class="err">관리 키가 맞지 않습니다.</p>'; return; }
   const j = await r.json();
-  const P = j.points;
+  const pts = Object.values(j.points);
 
   const rows = j.ranking.map((k, i) => `
-    <tr class="${i === 0 ? 'top' : ''}">
+    <tr class="${i < 5 ? 'top' : ''}">
       <td class="rank">${i + 1}</td>
       <td>${k.name}<br><span style="color:#6b7280;font-size:13px">${k.vendor} · ${won(k.price)}원 · ${k.family}</span></td>
       <td class="n">${k.score}</td>
-      <td class="n">${k.champion ? `<span class="win">${k.champion}</span>` : '–'}</td>
-      <td class="n">${k.wins}</td>
+      <td class="n">${k.first ? `<span class="win">${k.first}</span>` : '–'}</td>
+      <td class="n">${k.picked}</td>
     </tr>`).join('');
 
   $('out').innerHTML = `
     <div class="card">
-      <h2>투표 ${j.voters.length}명</h2>
-      <p>점수 = 단계별 진출 점수의 합.
-         16강 승 ${P.r16}점 · 8강 승 ${P.qf}점 · 4강 승 ${P.sf}점 · 우승 ${P.final}점.
-         예선은 16강 자리를 채우는 경기라 ${P.playin}점입니다.
-         한 사람이 한 디자인에 줄 수 있는 최대는 ${P.r16 + P.qf + P.sf + P.final}점입니다.</p>
+      <h2>${j.round || '1차 투표'} · ${j.voters.length}명 참여</h2>
+      <p>한 사람이 ${j.picks}개를 고릅니다. 고른 순서가 순위이고,
+         점수는 ${pts.join(' · ')}점입니다.
+         한 사람이 한 디자인에 줄 수 있는 최대는 ${pts[0]}점입니다.<br>
+         <b>표시된 상위 5종이 결선 후보입니다.</b> 결선은 Render 환경변수에
+         <code>SHORTLIST</code>(후보 id)와 <code>PICKS=1</code>을 넣으면 같은 주소로 열립니다.</p>
     </div>
     <table>
-      <thead><tr><th></th><th>디자인</th><th class="n">점수</th><th class="n">우승표</th><th class="n">승수</th></tr></thead>
+      <thead><tr><th></th><th>디자인</th><th class="n">점수</th><th class="n">1순위</th><th class="n">득표</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <div class="voters"><b>투표한 사람</b><br>${
-      j.voters.map(v => v.voter).join(' · ')}</div>`;
+    <div class="card" style="margin-top:22px">
+      <h2>결선 후보 id (복사용)</h2>
+      <p><code>${j.ranking.slice(0, 5).map(k => k.id).join(',')}</code></p>
+    </div>
+    <div class="voters"><b>투표한 사람 (${j.voters.length}명)</b><br>${
+      j.voters.map(v => v.voter).join(' · ') || '아직 없습니다'}</div>`;
 }
 
 $('load').addEventListener('click', load);
