@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>유니폼 투표 집계 — 총무용</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:#fff;color:#15181d;
+  padding:32px 20px 80px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:820px;margin:0 auto}
+h1{font-size:30px;font-weight:900;letter-spacing:-.02em;margin-bottom:6px}
+p.sub{color:#6b7280;font-size:15px;line-height:1.6;margin-bottom:24px}
+.key{display:flex;gap:8px;margin-bottom:26px}
+.key input{flex:1;font:inherit;font-size:16px;padding:12px 14px;border:2px solid #e5e7eb;border-radius:12px}
+.key button{font:inherit;font-weight:700;padding:12px 22px;border:none;border-radius:12px;background:#15181d;color:#fff;cursor:pointer}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:12px 10px;text-align:left;border-bottom:1px solid #eef0f3}
+th{font-size:13px;color:#6b7280;font-weight:700;white-space:nowrap}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.top td{background:#f6fbf8}
+tr.top td:first-child{font-weight:900}
+.rank{width:34px;color:#6b7280;font-weight:700}
+.win{display:inline-block;min-width:22px;padding:1px 7px;border-radius:99px;background:#0f8a4d;color:#fff;font-size:13px;font-weight:700;text-align:center}
+.card{border:1px solid #e5e7eb;border-radius:16px;padding:18px;margin-bottom:22px}
+.card h2{font-size:17px;font-weight:900;margin-bottom:8px}
+.card p{font-size:14px;color:#6b7280;line-height:1.6}
+.voters{margin-top:26px;font-size:14px;color:#6b7280;line-height:1.8}
+.err{color:#c2410c;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>유니폼 투표 집계</h1>
+  <p class="sub">총무 전용입니다. 투표가 진행 중일 때는 회원에게 보여주지 마세요 —
+    중간 순위를 보면 뒤에 투표하는 사람이 끌려갑니다.</p>
+
+  <div class="key">
+    <input id="k" type="password" placeholder="관리 키" autocomplete="off">
+    <button id="load">불러오기</button>
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const won = n => Number(n).toLocaleString();
+
+async function load() {
+  const key = $('k').value.trim();
+  if (!key) return;
+  localStorage.setItem('kitKey', key);
+  $('out').innerHTML = '불러오는 중…';
+  const r = await fetch('/api/results?key=' + encodeURIComponent(key));
+  if (!r.ok) { $('out').innerHTML = '<p class="err">관리 키가 맞지 않습니다.</p>'; return; }
+  const j = await r.json();
+  const P = j.points;
+
+  const rows = j.ranking.map((k, i) => `
+    <tr class="${i === 0 ? 'top' : ''}">
+      <td class="rank">${i + 1}</td>
+      <td>${k.name}<br><span style="color:#6b7280;font-size:13px">${k.vendor} · ${won(k.price)}원 · ${k.family}</span></td>
+      <td class="n">${k.score}</td>
+      <td class="n">${k.champion ? `<span class="win">${k.champion}</span>` : '–'}</td>
+      <td class="n">${k.wins}</td>
+    </tr>`).join('');
+
+  $('out').innerHTML = `
+    <div class="card">
+      <h2>투표 ${j.voters.length}명</h2>
+      <p>점수 = 단계별 진출 점수의 합.
+         16강 승 ${P.r16}점 · 8강 승 ${P.qf}점 · 4강 승 ${P.sf}점 · 우승 ${P.final}점.
+         예선은 16강 자리를 채우는 경기라 ${P.playin}점입니다.
+         한 사람이 한 디자인에 줄 수 있는 최대는 ${P.r16 + P.qf + P.sf + P.final}점입니다.</p>
+    </div>
+    <table>
+      <thead><tr><th></th><th>디자인</th><th class="n">점수</th><th class="n">우승표</th><th class="n">승수</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="voters"><b>투표한 사람</b><br>${
+      j.voters.map(v => v.voter).join(' · ')}</div>`;
+}
+
+$('load').addEventListener('click', load);
+$('k').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
+const saved = localStorage.getItem('kitKey');
+if (saved) { $('k').value = saved; load(); }
+</script>
+</body>
+</html>

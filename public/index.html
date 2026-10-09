@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>2027 한울타리 FC 유니폼 투표</title>
+<meta name="description" content="2027 시즌 유니폼을 이상형 월드컵으로 고릅니다.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css?v=3">
+</head>
+<body>
+
+<!-- 1. 시작 -->
+<section id="start" class="screen on">
+  <div class="wrap">
+    <p class="eyebrow">2027 시즌</p>
+    <h1>한울타리 FC<br>유니폼 투표</h1>
+    <p class="lead">후보 17종이 <b>비슷한 디자인끼리</b> 붙습니다.<br>
+      마음에 드는 쪽을 눌러주세요. 16번이면 끝납니다.</p>
+
+    <label class="field">
+      <span>이름</span>
+      <input id="voter" type="text" autocomplete="off" placeholder="본인 이름을 적어주세요" list="roster">
+      <datalist id="roster"></datalist>
+    </label>
+    <p id="startErr" class="err" hidden></p>
+
+    <button id="go" class="primary">시작하기</button>
+    <p class="note" id="statusNote">이미 투표하셨어도 다시 하시면 마지막 투표로 바뀝니다.</p>
+  </div>
+</section>
+
+<!-- 2. 대결 -->
+<section id="duel" class="screen">
+  <header class="bar">
+    <div class="round" id="roundLabel">16강</div>
+    <div class="prog"><i id="progBar"></i></div>
+    <div class="count" id="matchCount">1 / 16</div>
+  </header>
+
+  <div class="arena">
+    <button class="kit" id="kitA" type="button">
+      <div class="shot"><img id="imgA" alt=""></div>
+      <div class="meta"><strong id="nameA"></strong><span id="subA"></span></div>
+    </button>
+    <div class="vs" aria-hidden="true">VS</div>
+    <button class="kit" id="kitB" type="button">
+      <div class="shot"><img id="imgB" alt=""></div>
+      <div class="meta"><strong id="nameB"></strong><span id="subB"></span></div>
+    </button>
+  </div>
+
+  <footer class="hint">누르면 다음 경기로 넘어갑니다</footer>
+</section>
+
+<!-- 3. 결과 -->
+<section id="done" class="screen">
+  <div class="wrap">
+    <p class="eyebrow">내가 뽑은 우승</p>
+    <div class="champ">
+      <div class="shot big"><img id="champImg" alt=""></div>
+      <h2 id="champName"></h2>
+      <p id="champSub" class="lead"></p>
+    </div>
+
+    <div id="path" class="path"></div>
+
+    <button id="submit" class="primary">이 결과로 제출하기</button>
+    <button id="again" class="ghost">다시 고르기</button>
+    <p id="doneMsg" class="note"></p>
+  </div>
+</section>
+
+<script src="/app.js?v=3"></script>
+</body>
+</html>

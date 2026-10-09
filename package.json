@@ -1,0 +1,17 @@
+{
+  "name": "hanultari-kit-vote",
+  "version": "1.0.0",
+  "description": "2027 한울타리 FC 유니폼 이상형 월드컵 투표",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}
