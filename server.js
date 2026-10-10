@@ -22,6 +22,9 @@ const ADMIN_KEY = process.env.ADMIN_KEY || '';
 // 총무가 폰에서 바로 열 수 있는 짧은 비밀번호. 짧은 만큼 횟수를 막는다.
 const ADMIN_PIN = process.env.ADMIN_PIN || '';
 const VOTE_OPEN = process.env.VOTE_OPEN !== 'false';
+// 마감 시각. 관리자 화면에서 바꾸면 DB에 저장되고, 없으면 이 값을 쓴다.
+// 한국 시간으로 적는다 — Render 서버는 UTC로 돈다.
+const DEADLINE_DEFAULT = process.env.DEADLINE || '2026-10-25T00:00:00+09:00';
 const PICKS = Math.max(1, Math.min(8, parseInt(process.env.PICKS, 10) || 3));
 const SHORTLIST = (process.env.SHORTLIST || '').split(',').map(s => s.trim()).filter(Boolean);
 const ROUND_NAME = process.env.ROUND_NAME || (SHORTLIST.length ? '결선 투표' : '');
@@ -120,6 +123,11 @@ if (process.env.DATABASE_URL) {
       voter      text primary key,
       payload    jsonb       not null,
       updated_at timestamptz not null default now()
+    );
+    create table if not exists settings (
+      key        text primary key,
+      value      text        not null,
+      updated_at timestamptz not null default now()
     )`).then(
       () => console.log('[DB] 연결 완료 (%s)', external ? '외부 주소·SSL' : '내부 주소'),
       e => { console.error('[DB] 준비 실패:', e.message); throw e; });
@@ -143,18 +151,38 @@ if (process.env.DATABASE_URL) {
       const r = await pool.query('delete from votes where voter = $1', [voter]);
       return r.rowCount;
     },
+    async get(key) {
+      await ready;
+      const r = await pool.query('select value from settings where key = $1', [key]);
+      return r.rows[0] ? r.rows[0].value : null;
+    },
+    async set(key, value) {
+      await ready;
+      await pool.query(
+        `insert into settings (key, value, updated_at) values ($1, $2, now())
+         on conflict (key) do update set value = $2, updated_at = now()`, [key, value]);
+    },
   };
 } else {
   console.warn('[경고] DATABASE_URL이 없습니다. 투표가 메모리에만 남고 재시작하면 사라집니다.');
-  const mem = new Map();
+  const mem = new Map(), cfg = new Map();
   store = {
     kind: 'memory',
     async put(voter, payload) { mem.set(voter, { voter, payload, updated_at: new Date() }); },
     async all() { return [...mem.values()]; },
     async clear() { mem.clear(); },
     async del(voter) { return mem.delete(voter) ? 1 : 0; },
+    async get(key) { return cfg.get(key) ?? null; },
+    async set(key, value) { cfg.set(key, value); },
   };
 }
+
+// ---------- 마감 ----------
+async function deadline() {
+  const saved = await store.get('deadline').catch(() => null);
+  return saved || DEADLINE_DEFAULT;
+}
+const expired = d => { const t = Date.parse(d); return Number.isFinite(t) && Date.now() >= t; };
 
 // ---------- 집계 ----------
 function tally(rows) {
@@ -177,9 +205,11 @@ function tally(rows) {
 }
 
 // ---------- API ----------
-app.get('/api/config', (req, res) => {
+app.get('/api/config', async (req, res) => {
+  const d = await deadline();
   res.json({
-    open: VOTE_OPEN,
+    open: VOTE_OPEN && !expired(d),
+    deadline: d,
     picks: Math.min(PICKS, BALLOT.length),
     round: ROUND_NAME,
     kits: BALLOT.map(({ price, vendor, ...rest }) => rest),  // 가격·업체명은 선택에 영향을 준다
@@ -191,11 +221,18 @@ app.get('/api/config', (req, res) => {
 app.get('/api/status', async (req, res) => {
   const rows = await store.all();
   const ready = !(process.env.RENDER && store.kind === 'memory');
-  res.json({ voters: rows.length, open: VOTE_OPEN && ready, ready });
+  const d = await deadline();
+  res.json({
+    voters: rows.length, ready, deadline: d,
+    closed: expired(d),
+    open: VOTE_OPEN && ready && !expired(d),
+  });
 });
 
 app.post('/api/vote', async (req, res) => {
   if (!VOTE_OPEN) return res.status(403).json({ error: '투표가 마감되었습니다.' });
+  if (expired(await deadline()))
+    return res.status(403).json({ error: '마감 시각이 지났습니다.' });
   if (process.env.RENDER && store.kind === 'memory')
     return res.status(503).json({ error: '아직 준비 중입니다. 총무에게 알려주세요. (DB 미연결)' });
 
@@ -254,6 +291,7 @@ app.get('/api/results', async (req, res) => {
     picks: Math.min(PICKS, BALLOT.length),
     points: POINTS,
     round: ROUND_NAME,
+    deadline: await deadline(),
     voters: rows.map(r => ({
       voter: r.voter, at: r.updated_at,
       codeOk: r.payload && r.payload.codeOk,
@@ -271,6 +309,16 @@ app.post('/api/reset', async (req, res) => {
   const before = (await store.all()).length;
   await store.clear();
   res.json({ ok: true, deleted: before });
+});
+
+// 마감 시각 바꾸기. 환경변수를 고치면 재배포가 걸리니 DB에 둔다.
+app.post('/api/admin/deadline', async (req, res) => {
+  if (!guard(req, res)) return;
+  const v = String((req.body && req.body.deadline) || '').trim();
+  if (!Number.isFinite(Date.parse(v)))
+    return res.status(400).json({ error: '날짜 형식이 올바르지 않습니다.' });
+  await store.set('deadline', v);
+  res.json({ ok: true, deadline: v, closed: expired(v) });
 });
 
 // 잘못 들어간 한 건만 지운다. 전체를 비우는 것보다 이쪽을 먼저 쓴다.

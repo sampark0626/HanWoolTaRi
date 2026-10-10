@@ -48,6 +48,22 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   color: var(--mute); border: 2px solid var(--line); border-radius: 14px; background: #fff;
 }
 
+/* ---- 마감 카운트다운 ---- */
+.timer {
+  margin-top: 18px; padding: 16px 18px; background: #fff;
+  border: 2px solid var(--line); border-radius: 14px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+}
+.timer[hidden] { display: none; }
+.tlabel { font-size: 14px; font-weight: 700; color: var(--mute); }
+.timer strong {
+  font-size: 24px; font-weight: 900; letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.tdate { flex: 1 1 100%; font-size: 13px; color: var(--mute); }
+.timer.over { border-color: #f3c7ae; background: #fff8f4; }
+.timer.over strong { color: var(--warn, #c2410c); }
+
 /* ---- 이름 고르기 ---- */
 .field { display: block; margin: 22px 0 0; }
 .field > span { display: block; font-size: 15px; font-weight: 700; margin-bottom: 8px; }

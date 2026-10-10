@@ -2,7 +2,7 @@
 // 고른 순서가 곧 순위다 — 1순위 3점, 2순위 2점, 3순위 1점.
 // 대진표는 걷어냈다. 붙는 상대에 따라 결과가 흔들려 공정한 비교가 안 됐다.
 (() => {
-  const V = '12';          // 이미지를 교체하면 올린다 — 안 올리면 옛 그림이 남는다
+  const V = '14';          // 이미지를 교체하면 올린다 — 안 올리면 옛 그림이 남는다
   const $ = id => document.getElementById(id);
   const show = id => document.querySelectorAll('.screen')
     .forEach(s => s.classList.toggle('on', s.id === id));
@@ -11,6 +11,37 @@
   let voter = '', picks = [], zi = 0;
 
   const need = () => (CFG && CFG.picks) || 3;
+
+  // 마감까지 남은 시간. 지나면 투표를 막는다.
+  function tick() {
+    if (!CFG || !CFG.deadline) return;
+    const end = Date.parse(CFG.deadline);
+    if (!Number.isFinite(end)) return;
+    const el = $('timer'), v = $('tval');
+    el.hidden = false;
+    // 「오전 12:00」은 자정인지 정오인지 헷갈린다. 24시간제로 적는다.
+    const t = new Date(end), p0 = n => String(n).padStart(2, '0');
+    $('tdate').textContent =
+      `${t.getMonth() + 1}월 ${t.getDate()}일 (${'일월화수목금토'[t.getDay()]}) ` +
+      `${p0(t.getHours())}:${p0(t.getMinutes())} 마감`;
+
+    let left = end - Date.now();
+    if (left <= 0) {
+      el.classList.add('over');
+      v.textContent = '마감되었습니다';
+      $('go').disabled = true;
+      return;
+    }
+    el.classList.remove('over');
+    const d = Math.floor(left / 86400000);
+    const h = Math.floor(left / 3600000) % 24;
+    const m = Math.floor(left / 60000) % 60;
+    const sec = Math.floor(left / 1000) % 60;
+    const p2 = n => String(n).padStart(2, '0');
+    v.textContent = d > 0
+      ? `${d}일 ${p2(h)}:${p2(m)}:${p2(sec)}`
+      : `${p2(h)}:${p2(m)}:${p2(sec)}`;
+  }
 
   async function boot() {
     CFG = await (await fetch('/api/config')).json();
@@ -24,6 +55,8 @@
         `후보 ${CFG.kits.length}종을 쭉 보시고 마음에 드는 ${need()}개를 골라주세요. 2~3분이면 됩니다.`;
     }
     $('pickLabel').textContent = `${need()}개를 골라주세요`;
+    tick();
+    setInterval(tick, 1000);
     buildNames();
     buildGrid();
 
@@ -33,6 +66,7 @@
         $('statusNote').textContent =
           `지금까지 ${s.voters}명이 투표했습니다. 다시 하시면 마지막 투표로 바뀝니다.`;
       }
+      if (s.deadline) { CFG.deadline = s.deadline; tick(); }
       if (!s.open) {
         $('go').disabled = true;
         $('startErr').textContent = s.ready === false

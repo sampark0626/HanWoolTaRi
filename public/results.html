@@ -47,6 +47,8 @@ tr.top td:first-child{font-weight:900}
 .danger button{padding:12px 20px;border-radius:10px;background:var(--warn);color:#fff;font-weight:700}
 .danger button:disabled{opacity:.4;cursor:default}
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.row input[type=datetime-local]{font:inherit;font-size:16px;padding:11px 13px;border:2px solid var(--line);border-radius:10px}
+.save{padding:12px 22px;border-radius:10px;background:var(--ink);color:#fff;font-weight:700}
 .bar{display:flex;gap:10px;align-items:center;margin-bottom:18px}
 .bar button{padding:10px 16px;border:2px solid var(--line);border-radius:10px;background:#fff;font-size:14px;font-weight:700}
 .ok{color:var(--win);font-weight:700;font-size:14px}
@@ -145,6 +147,18 @@ async function load() {
         <tbody>${voterRows}</tbody></table>` : '<p style="margin-top:10px">아직 없습니다.</p>'}
     </div>
 
+    <div class="card">
+      <h2>마감 시각</h2>
+      <p>이 시각이 지나면 투표가 자동으로 닫히고, 메인 화면에 「마감되었습니다」가 뜹니다.
+         바꾸면 바로 적용됩니다 (재배포 없음).</p>
+      <div class="row">
+        <input id="dl" type="datetime-local" step="60">
+        <button id="saveDl" class="save">저장</button>
+        <span class="ok" id="dlMsg"></span>
+      </div>
+      <p style="margin-top:10px">현재 설정: <code id="dlNow"></code></p>
+    </div>
+
     <div class="card danger">
       <h2>전체 비우기</h2>
       <p>투표를 전부 지웁니다. <b>되돌릴 수 없습니다.</b>
@@ -155,6 +169,34 @@ async function load() {
         <span class="ok" id="wipeMsg"></span>
       </div>
     </div>`;
+
+  // 마감 시각 — datetime-local은 지역시간 문자열이라 오프셋을 직접 붙인다
+  const pad = n => String(n).padStart(2, '0');
+  const toLocal = iso => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+           `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  if (j.deadline) {
+    $('dl').value = toLocal(j.deadline);
+    $('dlNow').textContent = new Date(j.deadline).toLocaleString('ko-KR') +
+      (Date.now() >= Date.parse(j.deadline) ? '  (지났습니다)' : '');
+  }
+  $('saveDl').addEventListener('click', async () => {
+    const v = $('dl').value;
+    if (!v) return;
+    const d = new Date(v);                 // 브라우저 지역시간으로 해석된다
+    $('saveDl').disabled = true;
+    try {
+      await api('/api/admin/deadline', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ deadline: d.toISOString() }),
+      });
+      $('dlMsg').textContent = '저장했습니다.';
+      await load();
+    } catch (e) { alert(e.message); }
+    finally { $('saveDl').disabled = false; }
+  });
 
   $('refresh').addEventListener('click', load);
   $('out').querySelectorAll('[data-del]').forEach(b => {
