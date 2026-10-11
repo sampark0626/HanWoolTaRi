@@ -294,6 +294,7 @@ app.get('/api/results', async (req, res) => {
     deadline: await deadline(),
     voters: rows.map(r => ({
       voter: r.voter, at: r.updated_at,
+      picks: (r.payload && r.payload.picks) || [],
       codeOk: r.payload && r.payload.codeOk,
       code: r.payload && r.payload.code,
     })),
