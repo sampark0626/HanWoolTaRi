@@ -39,6 +39,24 @@ tr.top td:first-child{font-weight:900}
 .win{display:inline-block;min-width:22px;padding:1px 7px;border-radius:99px;background:var(--win);
   color:#fff;font-size:13px;font-weight:700;text-align:center}
 .sm{color:var(--mute);font-size:13px}
+td.th{width:62px;padding:8px}
+td.th img{width:54px;height:67px;object-fit:contain;display:block;background:#fff;
+  border:1px solid var(--line);border-radius:8px;cursor:zoom-in}
+
+.top5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+.top5 figure{position:relative;background:#fff;border:1px solid var(--line);border-radius:12px;
+  padding:8px;text-align:center;cursor:zoom-in}
+.top5 img{width:100%;aspect-ratio:2320/2880;object-fit:contain;display:block}
+.top5 figcaption{font-size:13px;font-weight:700;margin-top:6px;line-height:1.4}
+.top5 .badge{position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:50%;
+  background:var(--win);color:#fff;font-size:12px;font-weight:900;display:flex;
+  align-items:center;justify-content:center}
+@media(max-width:620px){.top5{grid-template-columns:repeat(3,1fr)}}
+
+.big{position:fixed;inset:0;z-index:40;background:rgba(12,14,17,.92);
+  display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out}
+.big[hidden]{display:none}
+.big img{max-width:100%;max-height:100%;object-fit:contain;border-radius:10px}
 
 .del{padding:7px 13px;border:2px solid var(--line);border-radius:9px;font-size:13px;font-weight:700;color:var(--warn);background:#fff}
 .danger{border:2px solid #f3c7ae;background:#fff8f4}
@@ -67,6 +85,10 @@ tr.top td:first-child{font-weight:900}
   </div>
 
   <div id="out" hidden></div>
+</div>
+
+<div id="big" class="big" hidden>
+  <img id="bigImg" alt="">
 </div>
 
 <script>
@@ -105,6 +127,8 @@ async function load() {
   const rows = j.ranking.map((k, i) => `
     <tr class="${i < 5 ? 'top' : ''}">
       <td class="rank">${i + 1}</td>
+      <td class="th"><img src="/kits/${k.id}.jpg" alt="${k.name}" loading="lazy"
+           data-big="${k.id}" title="누르면 크게 보입니다"></td>
       <td>${k.name}<br><span class="sm">${k.vendor} · ${won(k.price)}원 · ${k.family}</span></td>
       <td class="n">${k.score}</td>
       <td class="n">${k.first ? `<span class="win">${k.first}</span>` : '–'}</td>
@@ -132,10 +156,16 @@ async function load() {
         <code>SHORTLIST</code>와 <code>PICKS=1</code>을 넣으면 같은 주소로 열립니다.</p>
       <p style="margin-top:10px"><b>결선 후보 id</b>
         <code>${j.ranking.slice(0, 5).map(k => k.id).join(',')}</code></p>
+      <div class="top5">${j.ranking.slice(0, 5).map((k, i) => `
+        <figure data-big="${k.id}">
+          <span class="badge">${i + 1}</span>
+          <img src="/kits/${k.id}.jpg" alt="${k.name}" loading="lazy">
+          <figcaption>${k.name}<br><span class="sm">${k.score}점</span></figcaption>
+        </figure>`).join('')}</div>
     </div>
 
     <table>
-      <thead><tr><th></th><th>디자인</th><th class="n">점수</th><th class="n">1순위</th><th class="n">득표</th></tr></thead>
+      <thead><tr><th></th><th></th><th>디자인</th><th class="n">점수</th><th class="n">1순위</th><th class="n">득표</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
 
@@ -198,6 +228,16 @@ async function load() {
     finally { $('saveDl').disabled = false; }
   });
 
+  // 사진을 누르면 크게 본다
+  $('out').querySelectorAll('[data-big]').forEach(el => {
+    el.addEventListener('click', () => {
+      const z = $('big');
+      $('bigImg').src = `/kits/lg/${el.dataset.big}.jpg`;
+      z.hidden = false;
+      document.body.style.overflow = 'hidden';
+    });
+  });
+
   $('refresh').addEventListener('click', load);
   $('out').querySelectorAll('[data-del]').forEach(b => {
     b.addEventListener('click', async () => {
@@ -225,6 +265,15 @@ async function load() {
     } catch (e) { alert(e.message); }
   });
 }
+
+$('big').addEventListener('click', () => {
+  $('big').hidden = true; document.body.style.overflow = '';
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('big').hidden) {
+    $('big').hidden = true; document.body.style.overflow = '';
+  }
+});
 
 $('enter').addEventListener('click', enter);
 $('k').addEventListener('keydown', e => { if (e.key === 'Enter') enter(); });
