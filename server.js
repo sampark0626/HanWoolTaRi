@@ -52,6 +52,16 @@ const AUTH = Object.fromEntries(
     .map(s => { const i = s.lastIndexOf(':'); return [s.slice(0, i), s.slice(i + 1)]; }));
 const NEED_CODE = Object.keys(AUTH).length > 0;
 
+// 휴면 회원 (포메이션 보드에서 어두운 아이콘, 지명 대상 아님). 명부와 같은 이유로 코드에 넣지 않는다.
+const DORMANT = new Set((process.env.DORMANT || '').split(',').map(s => s.trim()).filter(Boolean));
+
+// 연령대 (팀을 연령대 비율로 나누는 데 쓴다): 이름:30대,이름:40대 ...
+// 생년·연락처가 아니라 구간 라벨만 들어 있고, 공개 응답에는 나가지 않는다(감독·총무에게만).
+const AGE = Object.fromEntries(
+  (process.env.AGE || '').split(',').map(s => s.trim()).filter(Boolean)
+    .map(s => { const i = s.lastIndexOf(':'); return [s.slice(0, i).trim(), s.slice(i + 1).trim()]; })
+    .filter(([k, v]) => k && v));
+
 function codeOk(name, code) {
   const want = AUTH[name];
   if (!want) return true;          // 연락처가 없는 회원은 확인할 방법이 없다
@@ -108,6 +118,7 @@ const noteFail = k => {
 
 // ---------- 저장소 ----------
 let store;
+let pgPool = null;                 // 포메이션 보드가 같은 DB를 쓴다
 if (process.env.DATABASE_URL) {
   const { Pool } = require('pg');
   // Render는 내부 주소(dpg-xxxx-a)와 외부 주소(*.render.com)를 둘 다 준다.
@@ -117,6 +128,7 @@ if (process.env.DATABASE_URL) {
     connectionString: process.env.DATABASE_URL,
     ssl: external ? { rejectUnauthorized: false } : false,
   });
+  pgPool = pool;
   pool.on('error', e => console.error('[DB] 연결 오류:', e.message));
   const ready = pool.query(`
     create table if not exists votes (
@@ -330,6 +342,19 @@ app.post('/api/admin/delete', async (req, res) => {
   const n = await store.del(voter);
   res.json({ ok: true, deleted: n });
 });
+
+// ---------- 자체전 포메이션 보드 (/board.html) ----------
+// 투표와 한 서버에 있지만 따로 돈다. 보드가 시작에 실패해도 투표는 계속 받는다.
+try {
+  require('./board-routes')(app, {
+    store: require('./board-store')(pgPool),
+    ROSTER, ROSTER_VIEW, LABELS, DORMANT, AGE, AUTH, NEED_CODE,
+    codeOk, guard, tooMany, noteFail, fails,
+    IS_PROD: !!(process.env.RENDER || process.env.NODE_ENV === 'production'),
+  });
+} catch (e) {
+  console.error('[보드] 시작 실패 — 투표는 그대로 동작합니다:', e);
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(

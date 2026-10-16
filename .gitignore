@@ -1,4 +1,6 @@
 node_modules/
 ROSTER.txt
+DORMANT.txt
 .env
 AUTH.txt
+AGE.txt

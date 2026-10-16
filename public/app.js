@@ -217,11 +217,24 @@
       $('doneMsg').textContent =
         `지금까지 ${j.voters}명이 투표했습니다. 창을 닫으셔도 됩니다.`;
       show('done'); window.scrollTo(0, 0);
+      offerBoard();
     } catch (e) {
       btn.textContent = was;
       btn.disabled = false;
       alert(e.message);
     }
+  }
+
+  // 자체전 보드로 이어준다 — 같은 날 포지션도 받는다. 실패해도 투표는 이미 끝났다.
+  async function offerBoard() {
+    try {
+      sessionStorage.setItem('boardMember', voter);
+      // 방금 넣은 번호를 한 번 더 치지 않게 넘긴다. 이 탭에서만, 보드가 읽는 즉시 지워진다.
+      const c = ($('recode').value || $('code').value || '').trim();
+      if (/^\d{4}$/.test(c)) sessionStorage.setItem('boardCode', c);
+      const b = await (await fetch('/api/board')).json();
+      if (b && b.positionsOpen) { $('toBoard').hidden = false; $('toBoardNote').hidden = false; }
+    } catch (e) { /* 무시 */ }
   }
 
   // ---------- 이벤트 ----------

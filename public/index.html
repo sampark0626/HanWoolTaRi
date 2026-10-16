@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=14">
+<link rel="stylesheet" href="/style.css?v=15">
 </head>
 <body>
 
@@ -93,10 +93,13 @@
     <p class="lead" id="doneLead"></p>
     <div id="mylist" class="mylist"></div>
     <p id="doneMsg" class="note"></p>
+    <!-- 자체전 포메이션 보드: 같은 날 포지션도 받는다. 입력 기간이 열려 있을 때만 app.js가 보여준다. -->
+    <a id="toBoard" class="primary linkbtn" href="/board.html" hidden>내 포지션도 알려주기 →</a>
+    <p id="toBoardNote" class="note" hidden style="margin-top:8px">자체전 팀을 짤 때 쓰입니다. 1분이면 됩니다.</p>
     <button id="again" class="ghost">다시 고르기</button>
   </div>
 </section>
 
-<script src="/app.js?v=14"></script>
+<script src="/app.js?v=16"></script>
 </body>
 </html>
