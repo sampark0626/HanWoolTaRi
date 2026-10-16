@@ -295,6 +295,43 @@ app.post('/api/vote', async (req, res) => {
   res.json({ ok: true, saved: true, voters: rows.length });
 });
 
+// 내 투표 확인 — 이름 + 뒷 4자리로 **자기 선택만** 돌려준다.
+// /api/vote 와 달리 번호가 틀리면 아예 내려주지 않는다. 남의 선택을 들여다보는
+// 창구가 되면 안 된다. 틀린 횟수는 /api/vote 와 같은 방식으로 센다(10분 5회).
+// 마감 뒤에도 확인은 되게 둔다 — 수정만 막히면 된다.
+app.post('/api/mine', async (req, res) => {
+  if (process.env.RENDER && store.kind === 'memory')
+    return res.status(503).json({ error: '아직 준비 중입니다. 총무에게 알려주세요. (DB 미연결)' });
+
+  const voter = String((req.body && req.body.voter) || '').trim().replace(/\s+/g, ' ');
+  if (ROSTER.length && !ROSTER.includes(voter))
+    return res.status(400).json({ error: '명부에 없는 이름입니다. 총무에게 문의해 주세요.' });
+
+  if (NEED_CODE) {
+    const bucket = 'mine|' + voter + '|' + (req.ip || '');
+    if (tooMany(bucket))
+      return res.status(429).json({ error: '여러 번 틀렸습니다. 10분 뒤에 다시 해주세요.' });
+    const code = String((req.body && req.body.code) || '').replace(/\D/g, '');
+    if (code.length !== 4 || !codeOk(voter, code)) {
+      noteFail(bucket);
+      return res.status(403).json({ error: '전화번호 뒷 4자리가 맞지 않습니다.' });
+    }
+    fails.delete(bucket);
+  }
+
+  const row = (await store.all()).find(r => r.voter === voter);
+  const saved = (row && row.payload && Array.isArray(row.payload.picks)) ? row.payload.picks : [];
+  // 후보가 바뀌었거나(2차 투표) 지워진 디자인은 보여주지 않는다
+  const picks = saved.filter(id => BALLOT_IDS.has(id));
+  res.json({
+    ok: true,
+    voted: picks.length > 0,
+    picks,
+    at: (row && row.payload && row.payload.at) || null,
+    canEdit: VOTE_OPEN && !expired(await deadline()),
+  });
+});
+
 // 결과는 총무만 본다. 중간 순위가 보이면 뒤에 투표하는 사람이 끌려간다.
 app.get('/api/results', async (req, res) => {
   if (!guard(req, res)) return;

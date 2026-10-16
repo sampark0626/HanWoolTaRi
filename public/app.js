@@ -64,7 +64,7 @@
       const s = await (await fetch('/api/status')).json();
       if (s.voters > 0) {
         $('statusNote').textContent =
-          `지금까지 ${s.voters}명이 투표했습니다. 다시 하시면 마지막 투표로 바뀝니다.`;
+          `지금까지 ${s.voters}명이 투표했습니다. 이미 하셨으면 지난 선택을 먼저 보여드립니다.`;
       }
       if (s.deadline) { CFG.deadline = s.deadline; tick(); }
       if (!s.open) {
@@ -104,6 +104,7 @@
     $('picked').hidden = false;
     $('go').disabled = false;
     $('startErr').hidden = true;
+    $('skip').hidden = true;
     if (CFG.needCode) { $('auth').hidden = false; }
     buildNames();
   }
@@ -118,8 +119,66 @@
       $('startErr').hidden = false; $('code').focus(); return;
     }
     $('startErr').hidden = true;
-    show('choose');
+    $('skip').hidden = true;
+    review();
+  }
+
+  // ---------- 지난 투표 확인 ----------
+  // 이름(+뒷 4자리)으로 자기가 뭘 골랐는지 먼저 보여준다. 거기서 수정하거나
+  // 포지션 입력으로 넘어간다. 아직 투표 안 한 분은 그대로 투표 화면으로 간다.
+  //
+  // 번호가 틀리면 지난 선택은 보여주지 않는다(남의 투표를 보는 창구가 되면 안 된다).
+  // 그래도 투표 자체를 막지는 않는다 — 기존 방침대로 제출할 때 한 번 더 되묻는다.
+  async function review() {
+    const btn = $('go'), was = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '불러오는 중…';
+    let j = null;
+    try {
+      const r = await fetch('/api/mine', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ voter, code: $('code').value.trim() }),
+      });
+      j = await r.json();
+      if (!r.ok) {
+        $('startErr').textContent = j.error || '지난 투표를 불러오지 못했습니다.';
+        $('startErr').hidden = false;
+        $('skip').hidden = false;
+        return;
+      }
+    } catch (e) {
+      toChoose();              // 조회가 안 되는 것이 투표를 막지는 않는다
+      return;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = was;
+    }
+    if (!j.voted) { toChoose(); return; }
+    picks = j.picks.slice(0, need());   // 「수정」을 누르면 지난 선택에서 이어 고친다
+    paintMine(j);
+    show('myvote');
     window.scrollTo(0, 0);
+    offerBoard('mvBoard', 'mvBoardNote');
+  }
+
+  function toChoose() { paint(); show('choose'); window.scrollTo(0, 0); }
+
+  function paintMine(j) {
+    const m = CFG.roster.find(x => x.v === voter);
+    $('mvWho').textContent = `${m ? m.label : voter} 님의 선택`;
+    const when = j.at ? new Date(j.at) : null;
+    $('mvLead').textContent = when && Number.isFinite(when.getTime())
+      ? `${when.getMonth() + 1}월 ${when.getDate()}일에 ${j.picks.length}개를 보내주셨습니다.`
+      : `${j.picks.length}개를 보내주셨습니다.`;
+    $('mvList').innerHTML = j.picks.map((id, i) => `
+      <div class="mine">
+        <b>${i + 1}순위</b>
+        <img src="/kits/${id}.jpg?v=${V}" alt="">
+        <span>${BY[id] ? BY[id].name : id}</span>
+      </div>`).join('');
+    $('mvEdit').hidden = !j.canEdit;
+    $('mvNote').hidden = !!j.canEdit;
+    if (!j.canEdit) $('mvNote').textContent = '투표가 마감되어 수정은 안 됩니다.';
   }
 
   // ---------- 디자인 고르기 ----------
@@ -226,14 +285,14 @@
   }
 
   // 자체전 보드로 이어준다 — 같은 날 포지션도 받는다. 실패해도 투표는 이미 끝났다.
-  async function offerBoard() {
+  async function offerBoard(link = 'toBoard', note = 'toBoardNote') {
     try {
       sessionStorage.setItem('boardMember', voter);
       // 방금 넣은 번호를 한 번 더 치지 않게 넘긴다. 이 탭에서만, 보드가 읽는 즉시 지워진다.
       const c = ($('recode').value || $('code').value || '').trim();
       if (/^\d{4}$/.test(c)) sessionStorage.setItem('boardCode', c);
       const b = await (await fetch('/api/board')).json();
-      if (b && b.positionsOpen) { $('toBoard').hidden = false; $('toBoardNote').hidden = false; }
+      if (b && b.positionsOpen) { $(link).hidden = false; $(note).hidden = false; }
     } catch (e) { /* 무시 */ }
   }
 
@@ -272,6 +331,14 @@
   });
   $('recode').addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
   $('again').addEventListener('click', () => { show('choose'); window.scrollTo(0, 0); });
+
+  $('skip').addEventListener('click', () => { picks = []; toChoose(); });
+  $('mvEdit').addEventListener('click', toChoose);
+  $('mvBack').addEventListener('click', () => { show('start'); window.scrollTo(0, 0); });
+  // 번호를 고쳐 넣기 시작하면 앞서 띄운 오류를 치운다
+  $('code').addEventListener('input', () => {
+    $('skip').hidden = true; $('startErr').hidden = true;
+  });
 
   boot();
 })();

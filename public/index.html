@@ -40,8 +40,24 @@
     <p id="startErr" class="err" hidden></p>
     <p id="picked" class="picked" hidden></p>
     <button id="go" class="primary" disabled>시작하기</button>
-    <p class="note" id="statusNote">이미 투표하셨어도 다시 하시면 마지막 투표로 바뀝니다.</p>
+    <button id="skip" class="ghost" hidden>번호가 맞습니다. 새로 투표하기</button>
+    <p class="note" id="statusNote">이미 투표하셨으면 지난 선택을 먼저 보여드립니다.</p>
     <a class="adminlink" href="/results.html">관리자</a>
+  </div>
+</section>
+
+<!-- 1-1. 지난 투표 확인 — 이미 투표한 분은 여기서 수정하거나 포지션 입력으로 넘어간다 -->
+<section id="myvote" class="screen">
+  <div class="wrap">
+    <p class="eyebrow">지난 투표</p>
+    <h2 id="mvWho"></h2>
+    <p class="lead" id="mvLead"></p>
+    <div id="mvList" class="mylist"></div>
+    <p id="mvNote" class="note" hidden></p>
+    <a id="mvBoard" class="primary linkbtn" href="/board.html" hidden>포지션 입력하기 →</a>
+    <p id="mvBoardNote" class="note" hidden style="margin-top:8px">자체전 팀을 짤 때 쓰입니다. 1분이면 됩니다.</p>
+    <button id="mvEdit" class="ghost">투표 수정하기</button>
+    <button id="mvBack" class="plainlink">이름 다시 고르기</button>
   </div>
 </section>
 
@@ -100,6 +116,6 @@
   </div>
 </section>
 
-<script src="/app.js?v=16"></script>
+<script src="/app.js?v=17"></script>
 </body>
 </html>
