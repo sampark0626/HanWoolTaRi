@@ -7,8 +7,16 @@
   const show = id => document.querySelectorAll('.screen')
     .forEach(s => s.classList.toggle('on', s.id === id));
 
+  const C = window.BoardCore;
+  const POSBY = Object.fromEntries(C.POSITIONS.map(p => [p.id, p]));
+  // 위(상대 골대)에서 아래(우리 골대)로. 좌우를 안 묻기 때문에 한 줄에 한 자리씩 놓인다.
+  const PITCH_ROWS = ['ST', 'WG', 'AM', 'CM', 'DM', 'SB', 'CB', 'GK'];
+  const WIDE = { WG: 1, SB: 1 };          // 좌·우를 함께 덮는 자리 — 넓게 그린다
+
   let CFG = null, BY = {};
   let voter = '', picks = [], zi = 0;
+  let me = { pos: [], foot: '' };         // 내 선수 정보
+  let MYVOTE = null, BOARD = null;        // 대시보드가 보여줄 현재 상태
 
   const need = () => (CFG && CFG.picks) || 3;
 
@@ -47,13 +55,7 @@
     CFG = await (await fetch('/api/config')).json();
     BY = Object.fromEntries(CFG.kits.map(k => [k.id, k]));
 
-    if (CFG.round) {
-      $('roundTag').textContent = CFG.round;
-      $('intro').textContent = `후보 ${CFG.kits.length}종 중 ${need()}개를 골라주세요.`;
-    } else {
-      $('intro').textContent =
-        `후보 ${CFG.kits.length}종을 쭉 보시고 마음에 드는 ${need()}개를 골라주세요. 2~3분이면 됩니다.`;
-    }
+    if (CFG.round) $('roundTag').textContent = CFG.round;
     $('pickLabel').textContent = `${need()}개를 골라주세요`;
     tick();
     setInterval(tick, 1000);
@@ -64,7 +66,7 @@
       const s = await (await fetch('/api/status')).json();
       if (s.voters > 0) {
         $('statusNote').textContent =
-          `지금까지 ${s.voters}명이 투표했습니다. 이미 하셨으면 지난 선택을 먼저 보여드립니다.`;
+          `지금까지 ${s.voters}명이 투표했습니다.`;
       }
       if (s.deadline) { CFG.deadline = s.deadline; tick(); }
       if (!s.open) {
@@ -120,65 +122,183 @@
     }
     $('startErr').hidden = true;
     $('skip').hidden = true;
-    review();
+    enter();
   }
 
-  // ---------- 지난 투표 확인 ----------
-  // 이름(+뒷 4자리)으로 자기가 뭘 골랐는지 먼저 보여준다. 거기서 수정하거나
-  // 포지션 입력으로 넘어간다. 아직 투표 안 한 분은 그대로 투표 화면으로 간다.
+  // ---------- 들어가기 ----------
+  // 이름 + 뒷 4자리로 두 가지를 한 번에 읽는다: 내 유니폼 투표, 보드에 적어둔 내 자리.
+  // 자리를 아직 안 적었으면 선수 정보부터 받고, 적어뒀으면 바로 대시보드로 간다.
   //
-  // 번호가 틀리면 지난 선택은 보여주지 않는다(남의 투표를 보는 창구가 되면 안 된다).
-  // 그래도 투표 자체를 막지는 않는다 — 기존 방침대로 제출할 때 한 번 더 되묻는다.
-  async function review() {
+  // 번호가 틀리면 지난 투표는 보여주지 않는다(남의 선택을 보는 창구가 되면 안 된다).
+  // 그래도 막지는 않는다 — 「그냥 들어가기」로 넘어갈 수 있다.
+  async function enter() {
     const btn = $('go'), was = btn.textContent;
     btn.disabled = true;
     btn.textContent = '불러오는 중…';
-    let j = null;
     try {
-      const r = await fetch('/api/mine', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ voter, code: $('code').value.trim() }),
-      });
-      j = await r.json();
-      if (!r.ok) {
-        $('startErr').textContent = j.error || '지난 투표를 불러오지 못했습니다.';
+      const [v, b] = await Promise.all([fetchMine(), fetchBoard()]);
+      if (v === 'badcode') {
+        $('startErr').textContent = '전화번호 뒷 4자리가 맞지 않습니다.';
         $('startErr').hidden = false;
         $('skip').hidden = false;
         return;
       }
+      MYVOTE = v;
+      BOARD = b;
+      readMe();
+      if (me.pos.length) showHome(); else showPlayer();
     } catch (e) {
-      toChoose();              // 조회가 안 되는 것이 투표를 막지는 않는다
-      return;
+      MYVOTE = null; BOARD = null; me = { pos: [], foot: '' };
+      showPlayer();                       // 조회가 안 되는 것이 입력을 막지는 않는다
     } finally {
       btn.disabled = false;
       btn.textContent = was;
     }
-    if (!j.voted) { toChoose(); return; }
-    picks = j.picks.slice(0, need());   // 「수정」을 누르면 지난 선택에서 이어 고친다
-    paintMine(j);
-    show('myvote');
-    window.scrollTo(0, 0);
-    offerBoard('mvBoard', 'mvBoardNote');
   }
 
-  function toChoose() { paint(); show('choose'); window.scrollTo(0, 0); }
+  async function fetchMine() {
+    const r = await fetch('/api/mine', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ voter, code: $('code').value.trim() }),
+    });
+    if (r.status === 403) return 'badcode';
+    if (!r.ok) return null;
+    return r.json();
+  }
+  const fetchBoard = () => fetch('/api/board').then(r => (r.ok ? r.json() : null)).catch(() => null);
 
-  function paintMine(j) {
+  function readMe() {
+    const mine = BOARD && (BOARD.members || []).find(m => m.v === voter);
+    me = { pos: (mine && mine.pos) || [], foot: (mine && mine.foot) || '' };
+  }
+
+  // ---------- 선수 정보 ----------
+  function showPlayer() {
     const m = CFG.roster.find(x => x.v === voter);
-    $('mvWho').textContent = `${m ? m.label : voter} 님의 선택`;
-    const when = j.at ? new Date(j.at) : null;
-    $('mvLead').textContent = when && Number.isFinite(when.getTime())
-      ? `${when.getMonth() + 1}월 ${when.getDate()}일에 ${j.picks.length}개를 보내주셨습니다.`
-      : `${j.picks.length}개를 보내주셨습니다.`;
-    $('mvList').innerHTML = j.picks.map((id, i) => `
-      <div class="mine">
-        <b>${i + 1}순위</b>
-        <img src="/kits/${id}.jpg?v=${V}" alt="">
-        <span>${BY[id] ? BY[id].name : id}</span>
-      </div>`).join('');
-    $('mvEdit').hidden = !j.canEdit;
-    $('mvNote').hidden = !!j.canEdit;
-    if (!j.canEdit) $('mvNote').textContent = '투표가 마감되어 수정은 안 됩니다.';
+    $('plEyebrow').textContent = `${m ? m.label : voter} 님`;
+    $('plWho').textContent = me.pos.length ? '자리를 고치시겠어요?' : '어디서 뛰시나요?';
+    $('plErr').hidden = true;
+    buildPitch();
+    buildFeet();
+    show('player');
+    window.scrollTo(0, 0);
+  }
+
+  function buildPitch() {
+    $('pitch').innerHTML = PITCH_ROWS.map(id => {
+      const p = POSBY[id];
+      if (!p) return '';
+      const at = me.pos.indexOf(id);
+      return `<button type="button" class="zone${WIDE[id] ? ' wide' : ''}${at >= 0 ? ' on' : ''}"
+        data-p="${id}" aria-pressed="${at >= 0}">
+        <span class="rk">${at + 1}</span><b>${p.name}</b><small>${p.hint}</small></button>`;
+    }).join('');
+    $('plSave').disabled = !me.pos.length;
+  }
+
+  function buildFeet() {
+    $('feet').innerHTML = C.FEET.map(f =>
+      `<button type="button" class="foot${me.foot === f.id ? ' on' : ''}" data-f="${f.id}"
+        aria-pressed="${me.foot === f.id}">${f.name}</button>`).join('');
+  }
+
+  async function savePlayer() {
+    if (!me.pos.length) return;
+    const btn = $('plSave'), was = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '저장 중…';
+    try {
+      // 번호는 들어올 때 이미 확인했다. 여기서 또 되묻지 않는다.
+      const r = await fetch('/api/board/positions', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          member: voter, positions: me.pos, foot: me.foot || null,
+          code: $('code').value.trim(), confirm: true,
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || '저장하지 못했습니다.');
+      BOARD = await fetchBoard();
+      readMe();
+      showHome();
+    } catch (e) {
+      $('plErr').textContent = e.message;
+      $('plErr').hidden = false;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = was;
+    }
+  }
+
+  // ---------- 대시보드 ----------
+  // 총무가 따로 올리는 글은 없다. **지금 열려 있는 일**만 서버 상태를 보고 카드로 세운다.
+  function card(kind, title, state, body, action, isNew) {
+    return `<section class="hcard ${kind}">
+      <header><div><h3>${title}</h3><p class="state">${state}</p></div>
+      ${isNew ? '<span class="new">NEW</span>' : ''}</header>
+      ${body || ''}${action ? `<div class="act">${action}</div>` : ''}</section>`;
+  }
+
+  function showHome() {
+    const m = CFG.roster.find(x => x.v === voter);
+    $('hmWho').textContent = `${m ? m.label : voter} 님`;
+    const out = [];
+
+    // 유니폼 투표
+    if (MYVOTE && MYVOTE.voted) {
+      out.push(card('kit', '유니폼 투표', '하셨습니다',
+        `<div class="mylist">${MYVOTE.picks.map((id, i) => `
+          <div class="mine"><b>${i + 1}순위</b><img src="/kits/${id}.jpg?v=${V}" alt="">
+          <span>${BY[id] ? BY[id].name : id}</span></div>`).join('')}</div>`,
+        MYVOTE.canEdit
+          ? '<button type="button" class="ghost" data-go="vote">다시 고르기</button>'
+          : '<p class="note">투표가 마감되어 수정은 안 됩니다.</p>'));
+    } else if (CFG.open !== false) {
+      out.push(card('kit', '유니폼 투표', '아직 안 하셨습니다',
+        '<p class="lead">2027 시즌 유니폼을 회원 투표로 정합니다. 17종 중 3개, 2~3분이면 됩니다.</p>',
+        '<button type="button" class="primary" data-go="vote">투표하러 가기</button>', true));
+    }
+
+    // 내 선수 정보
+    const closed = BOARD && BOARD.positionsState === 'after';
+    if (me.pos.length) {
+      const foot = (C.FEET.find(f => f.id === me.foot) || {}).name;
+      out.push(card('pos', '내 선수 정보', '적어두셨습니다',
+        `<p class="pills">${me.pos.map((id, i) =>
+          `<span class="pill"><i>${i + 1}</i>${POSBY[id] ? POSBY[id].name : id}</span>`).join('')}</p>
+         <p class="note">주발 · ${foot || '안 고르셨습니다'}</p>`,
+        closed ? '<p class="note">입력 기간이 끝났습니다.</p>'
+          : '<button type="button" class="ghost" data-go="player">고치기</button>'));
+    } else if (!closed) {
+      out.push(card('pos', '내 선수 정보', '아직 안 적으셨습니다',
+        '<p class="lead">자체전에서 팀을 짤 때 씁니다. 자리 1~3개와 주발, 1분이면 됩니다.</p>',
+        '<button type="button" class="primary" data-go="player">적으러 가기</button>', true));
+    }
+
+    // 자체전 보드
+    if (BOARD) {
+      const ph = BOARD.phase;
+      const state = ph === 'draft' ? '지금 감독들이 뽑고 있습니다'
+        : ph === 'review' ? '감독들이 확정하는 중입니다'
+          : ph === 'done' ? '팀이 정해졌습니다' : '아직 팀을 짜기 전입니다';
+      const act = (BOARD.members || []).filter(x => x.active);
+      out.push(card('board', '자체전 보드', state,
+        `<p class="note">활동 ${act.length}명 중 ${act.filter(x => x.pos).length}명이 자리를 적었습니다.</p>`,
+        '<a class="ghost linkbtn" href="/board.html">보드 열기</a>'));
+    }
+
+    $('cards').innerHTML = out.length ? out.join('')
+      : '<p class="lead">지금은 하실 일이 없습니다. 고맙습니다.</p>';
+    show('home');
+    window.scrollTo(0, 0);
+  }
+
+  // 투표 화면으로. 전에 고른 것이 있으면 그 위에서 고치게 한다.
+  function toChoose() {
+    picks = (MYVOTE && MYVOTE.picks ? MYVOTE.picks : []).slice(0, need());
+    paint();
+    show('choose');
+    window.scrollTo(0, 0);
   }
 
   // ---------- 디자인 고르기 ----------
@@ -206,7 +326,7 @@
   }
 
   function paint() {
-    for (const c of document.querySelectorAll('.card')) {
+    for (const c of document.querySelectorAll('#grid .card')) {
       const at = picks.indexOf(c.dataset.id);
       c.classList.toggle('on', at >= 0);
       c.querySelector('.rank').textContent = at >= 0 ? at + 1 : '';
@@ -275,25 +395,13 @@
         </div>`).join('');
       $('doneMsg').textContent =
         `지금까지 ${j.voters}명이 투표했습니다. 창을 닫으셔도 됩니다.`;
+      MYVOTE = { voted: true, picks: picks.slice(), at: new Date().toISOString(), canEdit: true };
       show('done'); window.scrollTo(0, 0);
-      offerBoard();
     } catch (e) {
       btn.textContent = was;
       btn.disabled = false;
       alert(e.message);
     }
-  }
-
-  // 자체전 보드로 이어준다 — 같은 날 포지션도 받는다. 실패해도 투표는 이미 끝났다.
-  async function offerBoard(link = 'toBoard', note = 'toBoardNote') {
-    try {
-      sessionStorage.setItem('boardMember', voter);
-      // 방금 넣은 번호를 한 번 더 치지 않게 넘긴다. 이 탭에서만, 보드가 읽는 즉시 지워진다.
-      const c = ($('recode').value || $('code').value || '').trim();
-      if (/^\d{4}$/.test(c)) sessionStorage.setItem('boardCode', c);
-      const b = await (await fetch('/api/board')).json();
-      if (b && b.positionsOpen) { $(link).hidden = false; $(note).hidden = false; }
-    } catch (e) { /* 무시 */ }
   }
 
   // ---------- 이벤트 ----------
@@ -331,10 +439,35 @@
   });
   $('recode').addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
   $('again').addEventListener('click', () => { show('choose'); window.scrollTo(0, 0); });
+  $('toHome').addEventListener('click', showHome);
 
-  $('skip').addEventListener('click', () => { picks = []; toChoose(); });
-  $('mvEdit').addEventListener('click', toChoose);
-  $('mvBack').addEventListener('click', () => { show('start'); window.scrollTo(0, 0); });
+  // 번호가 틀려도 들어갈 수는 있다. 지난 투표만 안 보여줄 뿐이다.
+  $('skip').addEventListener('click', () => {
+    MYVOTE = null;
+    fetchBoard().then(b => { BOARD = b; readMe(); if (me.pos.length) showHome(); else showPlayer(); });
+  });
+
+  $('pitch').addEventListener('click', e => {
+    const b = e.target.closest('.zone'); if (!b) return;
+    const id = b.dataset.p, at = me.pos.indexOf(id);
+    if (at >= 0) me.pos.splice(at, 1);
+    else { if (me.pos.length >= C.MAX_POS) me.pos.shift(); me.pos.push(id); }
+    $('plErr').hidden = true;
+    buildPitch();
+  });
+  $('feet').addEventListener('click', e => {
+    const b = e.target.closest('.foot'); if (!b) return;
+    me.foot = me.foot === b.dataset.f ? '' : b.dataset.f;   // 다시 누르면 해제
+    buildFeet();
+  });
+  $('plSave').addEventListener('click', savePlayer);
+  $('plSkip').addEventListener('click', showHome);
+  $('cards').addEventListener('click', e => {
+    const b = e.target.closest('[data-go]'); if (!b) return;
+    if (b.dataset.go === 'vote') toChoose();
+    if (b.dataset.go === 'player') showPlayer();
+  });
+  $('hmBack').addEventListener('click', () => { show('start'); window.scrollTo(0, 0); });
   // 번호를 고쳐 넣기 시작하면 앞서 띄운 오류를 치운다
   $('code').addEventListener('input', () => {
     $('skip').hidden = true; $('startErr').hidden = true;

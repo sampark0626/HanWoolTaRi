@@ -3,21 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>2027 한울타리 FC 유니폼 투표</title>
-<meta name="description" content="2027 시즌 유니폼을 회원 투표로 정합니다.">
+<title>한울타리 FC</title>
+<meta name="description" content="한울타리 FC — 선수 정보와 유니폼 투표.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=15">
+<link rel="stylesheet" href="/style.css?v=16">
 </head>
 <body>
 
 <!-- 1. 이름 고르기 -->
 <section id="start" class="screen on">
   <div class="wrap">
-    <p class="eyebrow" id="roundTag">2027 시즌</p>
-    <h1>한울타리 FC<br>유니폼 투표</h1>
-    <p class="lead" id="intro">마음에 드는 디자인을 골라주세요.</p>
+    <p class="eyebrow" id="roundTag">한울타리 FC</p>
+    <h1>안녕하세요<br>본인 이름을 골라주세요</h1>
+    <p class="lead" id="intro">들어가시면 할 일을 모아서 보여드립니다.</p>
 
     <div id="timer" class="timer" hidden>
       <span class="tlabel">마감까지</span>
@@ -26,42 +26,62 @@
     </div>
 
     <div class="field">
-      <span>본인 이름을 골라주세요</span>
-      <input id="q" type="search" autocomplete="off" placeholder="많으면 여기에 한 글자만 쳐보세요">
+      <input id="q" type="search" autocomplete="off" placeholder="이름이 많으면 한 글자만 쳐보세요">
       <div id="names" class="names" role="listbox" aria-label="회원 명부"></div>
     </div>
 
     <div id="auth" class="auth" hidden>
       <label for="code">본인 확인 — 전화번호 뒷 4자리</label>
       <input id="code" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000">
-      <p class="why">다른 분 이름으로 투표되는 걸 막기 위한 것입니다.</p>
+      <p class="why">다른 분 이름으로 들어가는 걸 막기 위한 것입니다.</p>
     </div>
 
     <p id="startErr" class="err" hidden></p>
     <p id="picked" class="picked" hidden></p>
-    <button id="go" class="primary" disabled>시작하기</button>
-    <button id="skip" class="ghost" hidden>번호가 맞습니다. 새로 투표하기</button>
-    <p class="note" id="statusNote">이미 투표하셨으면 지난 선택을 먼저 보여드립니다.</p>
+    <div class="stick">
+      <button id="go" class="primary" disabled>들어가기</button>
+      <button id="skip" class="ghost" hidden>번호가 맞습니다. 그냥 들어가기</button>
+    </div>
+    <p class="note" id="statusNote"></p>
     <a class="adminlink" href="/results.html">관리자</a>
   </div>
 </section>
 
-<!-- 1-1. 지난 투표 확인 — 이미 투표한 분은 여기서 수정하거나 포지션 입력으로 넘어간다 -->
-<section id="myvote" class="screen">
+<!-- 2. 선수 정보 — 들어오면 가장 먼저 받는다 -->
+<section id="player" class="screen">
   <div class="wrap">
-    <p class="eyebrow">지난 투표</p>
-    <h2 id="mvWho"></h2>
-    <p class="lead" id="mvLead"></p>
-    <div id="mvList" class="mylist"></div>
-    <p id="mvNote" class="note" hidden></p>
-    <a id="mvBoard" class="primary linkbtn" href="/board.html" hidden>포지션 입력하기 →</a>
-    <p id="mvBoardNote" class="note" hidden style="margin-top:8px">자체전 팀을 짤 때 쓰입니다. 1분이면 됩니다.</p>
-    <button id="mvEdit" class="ghost">투표 수정하기</button>
-    <button id="mvBack" class="plainlink">이름 다시 고르기</button>
+    <p class="eyebrow" id="plEyebrow">선수 정보</p>
+    <h2 id="plWho">어디서 뛰시나요?</h2>
+    <p class="lead">뛸 수 있는 자리를 <b>최대 3개</b>까지 눌러주세요. 누른 순서가 곧 우선순위입니다.</p>
+
+    <div class="pitch" id="pitch" role="group" aria-label="포지션 고르기"></div>
+    <p class="hintline">왼쪽·오른쪽은 따로 묻지 않습니다. 아래 <b>주발</b>을 보고 자리를 잡아드립니다.</p>
+
+    <h3 class="sub">주발</h3>
+    <div class="feet" id="feet" role="group" aria-label="주발 고르기"></div>
+
+    <p class="hintline muted">적어주신 자리가 아니어도 인원에 따라 다른 자리에 설 수 있습니다. 참고용입니다.</p>
+    <p id="plErr" class="err" hidden></p>
+
+    <div class="stick">
+      <button id="plSave" class="primary" disabled>저장하고 계속</button>
+      <button id="plSkip" class="plainlink">나중에 하기</button>
+    </div>
   </div>
 </section>
 
-<!-- 2. 디자인 고르기 -->
+<!-- 3. 대시보드 — 지금 열려 있는 일만 모아서 보여준다 -->
+<section id="home" class="screen">
+  <div class="wrap">
+    <p class="eyebrow">한울타리 FC</p>
+    <h2 id="hmWho"></h2>
+    <p class="lead" id="hmLead">지금 하실 수 있는 일입니다.</p>
+    <div id="cards" class="cards"></div>
+    <button id="hmBack" class="plainlink">다른 이름으로 보기</button>
+  </div>
+</section>
+
+<!-- 4. 디자인 고르기 -->
 <section id="choose" class="screen">
   <header class="bar">
     <div class="brand">2027 한울타리 FC</div>
@@ -77,7 +97,7 @@
   </footer>
 </section>
 
-<!-- 2-1. 제출 직전 번호 다시 확인 -->
+<!-- 4-1. 제출 직전 번호 다시 확인 -->
 <div id="recheck" class="sheet" hidden>
   <div class="sheetbox">
     <h3>전화번호 뒷 4자리를 확인해 주세요</h3>
@@ -89,7 +109,7 @@
   </div>
 </div>
 
-<!-- 3. 크게 보기 -->
+<!-- 4-2. 크게 보기 -->
 <div id="zoom" class="zoom" hidden>
   <button class="zclose" id="zclose" aria-label="닫기">✕</button>
   <button class="znav zprev" id="zprev" aria-label="이전">‹</button>
@@ -101,7 +121,7 @@
   </div>
 </div>
 
-<!-- 4. 끝 -->
+<!-- 5. 투표 끝 -->
 <section id="done" class="screen">
   <div class="wrap">
     <p class="eyebrow">제출 완료</p>
@@ -109,13 +129,14 @@
     <p class="lead" id="doneLead"></p>
     <div id="mylist" class="mylist"></div>
     <p id="doneMsg" class="note"></p>
-    <!-- 자체전 포메이션 보드: 같은 날 포지션도 받는다. 입력 기간이 열려 있을 때만 app.js가 보여준다. -->
-    <a id="toBoard" class="primary linkbtn" href="/board.html" hidden>내 포지션도 알려주기 →</a>
-    <p id="toBoardNote" class="note" hidden style="margin-top:8px">자체전 팀을 짤 때 쓰입니다. 1분이면 됩니다.</p>
-    <button id="again" class="ghost">다시 고르기</button>
+    <div class="stick">
+      <button id="toHome" class="primary">할 일 더 보기</button>
+      <button id="again" class="ghost">다시 고르기</button>
+    </div>
   </div>
 </section>
 
-<script src="/app.js?v=17"></script>
+<script src="/core.js?v=3"></script>
+<script src="/app.js?v=18"></script>
 </body>
 </html>

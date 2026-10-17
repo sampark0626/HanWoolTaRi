@@ -5,4 +5,4 @@ DORMANT.txt
 AUTH.txt
 AGE.txt
 ADMIN_KEY.txt
-*.bak
+*.bak*

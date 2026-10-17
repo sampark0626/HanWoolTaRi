@@ -326,3 +326,8 @@
 .b-card.turn .ghost { margin-top: 12px; }
 .b-form .two > div { min-width: 0; }
 .b-form .two.stack { grid-template-columns: 1fr; }
+
+/* 주발 고르기 — 포지션 시트 안 */
+.b-feet{display:flex;gap:8px}
+.b-fbtn{flex:1;padding:10px 8px;border:1px solid var(--b-line,#d7dbe0);border-radius:10px;background:#fff;font:inherit;font-weight:600;color:#39414a;cursor:pointer}
+.b-fbtn.on{background:#111820;border-color:#111820;color:#fff}

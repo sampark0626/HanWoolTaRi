@@ -204,7 +204,7 @@
   function openPos(v) {
     const m = S.byV[v]; if (!m) return;
     if (!S.data.positionsOpen && !isAdmin()) { toast(S.data.positionsState === 'before' ? '아직 입력 기간이 아닙니다.' : '포지션 입력이 마감되었습니다.'); return; }
-    ps = { v, sel: (m.pos || []).slice() };
+    ps = { v, sel: (m.pos || []).slice(), foot: m.foot || '' };
     $('psTitle').textContent = `${m.label} 님의 포지션`;
     $('psCode').value = '';
     $('psAuth').hidden = !(S.data.needCode && !isAdmin());
@@ -225,7 +225,11 @@
         const at = ps.sel.indexOf(p.id);
         return `<button type="button" class="b-pbtn ${gOf(p.id)}${at >= 0 ? ' on' : ''}" data-p="${p.id}">
           <span class="rk">${at + 1}</span><b>${p.id}</b><small>${p.name}</small></button>`;
-      }).join('')}</div></div>`).join('');
+      }).join('')}</div></div>`).join('') +
+      // 좌우를 묻지 않는 대신 주발을 받는다 — 왼쪽·오른쪽 자리는 이걸로 가늠한다
+      `<div class="b-pg"><h5>주발</h5><div class="b-feet">
+        ${C.FEET.map(f => `<button type="button" class="b-fbtn${ps.foot === f.id ? ' on' : ''}" data-f="${f.id}">${f.name}</button>`).join('')}
+      </div></div>`;
   }
   function psError(msg) { $('psErr').textContent = msg; $('psErr').hidden = !msg; }
   async function savePos(force) {
@@ -235,7 +239,7 @@
     psError(''); $('psSave').disabled = true; $('psForce').disabled = true;
     try {
       const j = await api('/api/board/positions' + (isAdmin() ? kq() : ''),
-        { member: ps.v, positions: ps.sel, code, confirm: force === true });
+        { member: ps.v, positions: ps.sel, foot: ps.foot || null, code, confirm: force === true });
       if (j.mismatch) {
         psError('입력하신 번호가 기존 기록과 다릅니다. 오타인지 봐주세요. 맞는 번호라면 아래 버튼으로 그대로 저장할 수 있습니다.');
         $('psForce').hidden = false;
@@ -445,6 +449,7 @@
   </svg>`;
 
   const posOf = v => (S.byV[v] && S.byV[v].pos) || [];
+  const footOf = v => (S.byV[v] && S.byV[v].foot) || null;
   const onField = t => Object.keys(S.fm[t].pieces);
 
   function tokHtml(n, p, t) {
@@ -553,7 +558,7 @@
     const taken = Object.values(f.pieces);
     const free = C.FORMATION_BY_ID[f.id].slots.filter(s => !taken.some(p => Math.hypot(p.x - s.x, p.y - s.y) < .07));
     let best = { x: .5, y: .5 }, bc = Infinity;
-    for (const s of free) { const c = C.fitCost(posOf(name), s.role); if (c < bc) { bc = c; best = s; } }
+    for (const s of free) { const c = C.fitCost(posOf(name), s.role, footOf(name)); if (c < bc) { bc = c; best = s; } }
     f.pieces[name] = { x: best.x, y: best.y };
     touch(t);
   }
@@ -565,12 +570,12 @@
     const f = S.fm[t], cur = onField(t);
     const names = cur.length ? cur : S.data.teams[t];
     f.id = id;
-    f.pieces = C.autoLayout(id, names, posOf);
+    f.pieces = C.autoLayout(id, names, posOf, footOf);
     touch(t);
   }
   function autoAll(t) {
     const f = S.fm[t];
-    f.pieces = C.autoLayout(f.id, S.data.teams[t], posOf);
+    f.pieces = C.autoLayout(f.id, S.data.teams[t], posOf, footOf);
     touch(t);
   }
 
@@ -829,6 +834,13 @@
 
   // 포지션 시트
   $('psGrid').addEventListener('click', e => {
+    const f = e.target.closest('.b-fbtn');
+    if (f) {                                   // 주발 — 같은 것을 다시 누르면 해제
+      ps.foot = ps.foot === f.dataset.f ? '' : f.dataset.f;
+      psError(''); $('psForce').hidden = true;
+      buildPosGrid();
+      return;
+    }
     const b = e.target.closest('.b-pbtn'); if (!b) return;
     const id = b.dataset.p, at = ps.sel.indexOf(id);
     if (at >= 0) ps.sel.splice(at, 1);

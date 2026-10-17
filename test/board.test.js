@@ -311,15 +311,17 @@ test('포메이션은 전부 11자리이고 GK가 하나다', () => {
     assert.equal(f.slots.length, 11, f.id);
     assert.equal(f.slots.filter(s => s.role === 'GK').length, 1, f.id);
     for (const s of f.slots) {
-      assert.ok(C.POS_IDS.includes(s.role), `${f.id} ${s.role}`);
+      assert.ok(C.SLOT_TO_POS[s.role], `${f.id} ${s.role}`);
       assert.ok(s.x >= 0 && s.x <= 1 && s.y >= 0 && s.y <= 1, f.id);
     }
   }
 });
 
 test('자동 배치: 골키퍼는 GK 자리, 주 포지션이 맞는 자리에 앉는다', () => {
-  const pos = { g: ['GK'], c1: ['CB'], c2: ['CB', 'DM'], l: ['LB'], r: ['RB'], s: ['ST'], s2: ['ST', 'LW'] };
-  const out = C.autoLayout('4-4-2', Object.keys(pos), n => pos[n]);
+  // 좌우는 안 묻는다. 측면 수비 둘을 주발로 갈라 세운다.
+  const pos = { g: ['GK'], c1: ['CB'], c2: ['CB', 'DM'], l: ['SB'], r: ['SB'], s: ['ST'], s2: ['ST', 'WG'] };
+  const foot = { l: 'L', r: 'R' };
+  const out = C.autoLayout('4-4-2', Object.keys(pos), n => pos[n], n => foot[n] || null);
   assert.equal(Object.keys(out).length, 7);
   assert.equal(out.g.y, .92);
   assert.ok(out.l.x < out.c1.x && out.r.x > out.c1.x);
@@ -336,6 +338,37 @@ test('자동 배치: 포지션이 있는 사람이 없는 사람보다 먼저 �
   const out = C.autoLayout('4-4-2', ['없음1', '없음2', 'cb'], n => pos[n]);
   assert.ok('cb' in out);
   assert.equal(Object.keys(out).length, 3);
+});
+
+test('좌우를 묻던 시절 값은 통합된 자리로 받는다', () => {
+  assert.deepEqual(C.cleanPositions(['LB', 'CB']), ['SB', 'CB']);
+  assert.deepEqual(C.cleanPositions(['LW', 'RW']), ['WG']);   // 한 자리로 겹치면 하나로
+  assert.deepEqual(C.cleanPositions(['RB']), ['SB']);
+});
+
+test('주발 검증: 안 골라도 되고, 엉뚱한 값은 거부한다', () => {
+  assert.equal(C.cleanFoot('l'), 'L');
+  assert.equal(C.cleanFoot('B'), 'B');
+  assert.equal(C.cleanFoot(''), null);
+  assert.equal(C.cleanFoot(null), null);
+  assert.throws(() => C.cleanFoot('Z'), /주발/);
+});
+
+test('주발로 좌·우 자리를 가늠한다', () => {
+  assert.ok(C.fitCost(['SB'], 'LB', 'L') < C.fitCost(['SB'], 'RB', 'L'));
+  assert.ok(C.fitCost(['WG'], 'RW', 'R') < C.fitCost(['WG'], 'LW', 'R'));
+  // 양발·모름은 좌우를 안 따진다
+  assert.equal(C.fitCost(['SB'], 'LB', 'B'), C.fitCost(['SB'], 'RB', 'B'));
+  assert.equal(C.fitCost(['SB'], 'LB', null), C.fitCost(['SB'], 'RB', null));
+  // 발보다 포지션이 먼저다 — 반대발 측면수비가 공격수보다 측면수비 자리에 가깝다
+  assert.ok(C.fitCost(['SB'], 'LB', 'R') < C.fitCost(['ST'], 'LB', 'L'));
+});
+
+test('적어 낸 자리가 아니어도 배치된다', () => {
+  const pos = { a: ['ST'], b: ['ST'], c: ['ST'] };          // 4-4-2 의 공격수 자리는 둘뿐
+  const out = C.autoLayout('4-4-2', Object.keys(pos), n => pos[n]);
+  assert.equal(Object.keys(out).length, 3, '셋 다 어딘가에 선다');
+  assert.ok(new Set(Object.values(out).map(q => q.y)).size >= 2, '한 명은 다른 줄로 간다');
 });
 
 test('포지션 검증: 1~3개, 중복·미정의 거부', () => {

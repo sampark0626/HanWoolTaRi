@@ -262,3 +262,115 @@ a.linkbtn[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ───────────────────────────────────────────────────────────────
+   선수 정보 · 대시보드 (2026-10-17)
+   폰에서 한 손으로 쓰는 화면이다. 터치 영역을 크게, 글씨를 또렷하게.
+   ─────────────────────────────────────────────────────────────── */
+
+:root {
+  --paper: #fff;
+  --ink2: #39414b;
+  --hair: #e8eaee;
+  --soft: 0 1px 2px rgba(16,24,40,.04), 0 10px 24px -12px rgba(16,24,40,.18);
+  --lift: 0 2px 6px rgba(16,24,40,.06), 0 18px 36px -18px rgba(16,24,40,.28);
+  --turf1: #1d7a4c;
+  --turf2: #14603b;
+}
+body { background: radial-gradient(120% 70% at 50% 0%, #fafbfc 0%, var(--bg) 60%); }
+
+.sub { font-size: 15px; font-weight: 700; color: var(--mute); margin: 22px 0 10px; letter-spacing: .01em; }
+.hintline { font-size: 14px; line-height: 1.6; color: var(--mute); margin-top: 12px; }
+.hintline.muted { color: #9aa1ab; }
+.hintline b { color: var(--ink2); }
+
+/* 버튼 묶음 — 화면 아래쪽에 붙여 한 손으로 누르게 */
+.stick { margin-top: 26px; display: flex; flex-direction: column; gap: 10px; }
+.stick .plainlink, .stick .ghost { margin: 0; }
+
+/* ── 경기장: 자리를 눌러 고른다 ────────────────────────────────── */
+.pitch {
+  margin-top: 20px; padding: 14px 12px; border-radius: 20px;
+  background:
+    repeating-linear-gradient(180deg, rgba(255,255,255,.045) 0 38px, rgba(0,0,0,.025) 38px 76px),
+    linear-gradient(170deg, var(--turf1), var(--turf2));
+  box-shadow: var(--lift), inset 0 0 0 1px rgba(255,255,255,.14);
+  display: flex; flex-direction: column; gap: 9px;
+  position: relative; overflow: hidden;
+}
+.pitch::before {              /* 가운데 원 — 경기장처럼 보이게만 */
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 118px; height: 118px; margin: -59px 0 0 -59px;
+  border: 1.5px solid rgba(255,255,255,.16); border-radius: 50%; pointer-events: none;
+}
+
+.zone {
+  position: relative; width: 72%; margin: 0 auto; min-height: 58px;
+  padding: 10px 16px 10px 44px; border-radius: 13px; text-align: left;
+  background: rgba(255,255,255,.93); color: var(--ink);
+  box-shadow: 0 1px 0 rgba(0,0,0,.12);
+  transition: transform .12s ease, background .12s ease, box-shadow .12s ease;
+}
+.zone.wide { width: 100%; }
+.zone b { display: block; font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+.zone small { display: block; font-size: 12.5px; color: var(--mute); margin-top: 2px; }
+.zone .rk {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 1.5px solid #d4d8de; color: transparent; font-size: 13px; font-weight: 800;
+  display: grid; place-items: center;
+}
+.zone.on { background: #111820; color: #fff; box-shadow: 0 0 0 2.5px rgba(255,255,255,.85); }
+.zone.on b { color: #fff; }
+.zone.on small { color: rgba(255,255,255,.62); }
+.zone.on .rk { background: #fff; border-color: #fff; color: #111820; }
+.zone:active { transform: scale(.985); }
+
+/* ── 주발 ───────────────────────────────────────────────────── */
+.feet { display: flex; gap: 9px; }
+.foot {
+  flex: 1; padding: 15px 8px; border-radius: 13px; font-size: 16px; font-weight: 700;
+  background: var(--paper); color: var(--ink2); border: 1px solid var(--hair);
+  box-shadow: var(--soft); transition: transform .12s ease;
+}
+.foot.on { background: #111820; border-color: #111820; color: #fff; }
+.foot:active { transform: scale(.98); }
+
+/* ── 대시보드 카드 ──────────────────────────────────────────── */
+.cards { margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
+.hcard {
+  background: var(--paper); border: 1px solid var(--hair); border-radius: 18px;
+  padding: 18px 18px 16px; box-shadow: var(--soft);
+}
+.hcard > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hcard h3 { font-size: 19px; font-weight: 800; letter-spacing: -.02em; }
+.hcard .state { font-size: 13.5px; color: var(--mute); margin-top: 3px; }
+.hcard .lead { font-size: 15.5px; margin-top: 12px; }
+.hcard .note { margin-top: 10px; }
+.hcard .act { margin-top: 15px; }
+.hcard .act .primary { padding: 14px; font-size: 16px; }
+.hcard .act .ghost, .hcard .act a.linkbtn { width: 100%; margin-top: 0; display: block; text-align: center; }
+.new {
+  flex: none; padding: 5px 9px; border-radius: 999px; background: #111820; color: #fff;
+  font-size: 11px; font-weight: 800; letter-spacing: .06em;
+}
+.hcard .mylist { margin-top: 12px; }
+.hcard .mylist .mine { padding: 8px 10px; }
+.hcard .mylist img { width: 34px; height: 34px; }
+
+.pills { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 13px 8px 8px; border-radius: 999px;
+  background: #f3f5f7; border: 1px solid var(--hair);
+  font-size: 14.5px; font-weight: 700; color: var(--ink2);
+}
+.pill i {
+  width: 19px; height: 19px; border-radius: 50%; background: #111820; color: #fff;
+  font-style: normal; font-size: 11px; font-weight: 800; display: grid; place-items: center;
+}
+
+@media (min-width: 420px) {
+  .zone { min-height: 62px; }
+  .zone b { font-size: 17px; }
+}

@@ -61,7 +61,10 @@ module.exports = function mountBoard(app, deps) {
       pool: D.poolOf(st, CTX),
       members: ROSTER_VIEW.map(({ v, label }) => {
         const p = posMap.get(v);
-        return { v, label, active: CTX.isActive(st, v), pos: p && Array.isArray(p.pos) ? p.pos : null };
+        // 좌우를 묻던 시절 값이 남아 있을 수 있다. 통합된 자리로 바꿔 내려보낸다.
+        const pos = p && Array.isArray(p.pos) && p.pos.length
+          ? [...new Set(p.pos.map(x => C.LEGACY_POS[x] || x))] : null;
+        return { v, label, active: CTX.isActive(st, v), pos, foot: (p && p.foot) || null };
       }),
       log: st.log.slice(-80).reverse(),
       needCode: NEED_CODE,
@@ -148,8 +151,11 @@ module.exports = function mountBoard(app, deps) {
 
     const member = String(body.member || '');
     if (!ROSTER.includes(member)) return bad(res, '명부에 없는 이름입니다.');
-    let pos;
-    try { pos = C.cleanPositions(body.positions); } catch (e) { return bad(res, e.message); }
+    let pos, foot;
+    try {
+      pos = C.cleanPositions(body.positions);
+      foot = C.cleanFoot(body.foot);          // 안 고를 수도 있다 (null)
+    } catch (e) { return bad(res, e.message); }
 
     let codeState = null;
     if (isAdminReq) {
@@ -167,7 +173,7 @@ module.exports = function mountBoard(app, deps) {
       if (ok) fails.delete(bucket);
       codeState = known ? ok : null;
     }
-    await store.posPut(member, { pos, at: new Date().toISOString(), codeOk: codeState });
+    await store.posPut(member, { pos, foot, at: new Date().toISOString(), codeOk: codeState });
     res.json({ ok: true, saved: true, pos });
   }));
 
