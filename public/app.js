@@ -37,8 +37,7 @@
     if (left <= 0) {
       el.classList.add('over');
       v.textContent = '마감되었습니다';
-      $('go').disabled = true;
-      return;
+      return;                       // 투표가 끝나도 들어오는 것은 막지 않는다
     }
     el.classList.remove('over');
     const d = Math.floor(left / 86400000);
@@ -70,11 +69,10 @@
       }
       if (s.deadline) { CFG.deadline = s.deadline; tick(); }
       if (!s.open) {
-        $('go').disabled = true;
-        $('startErr').textContent = s.ready === false
+        // 투표만 닫힌 것이다. 자리 입력과 내 팀 보기는 그대로 되니 알리기만 한다.
+        $('statusNote').textContent = s.ready === false
           ? '아직 준비 중입니다. 조금 뒤에 다시 들어와 주세요.'
-          : '투표가 마감되었습니다.';
-        $('startErr').hidden = false;
+          : '유니폼 투표는 마감되었습니다. 자리 입력과 팀 확인은 그대로 하실 수 있습니다.';
       }
     } catch (e) { /* 상태 조회 실패가 투표를 막지는 않는다 */ }
   }
@@ -101,59 +99,97 @@
 
   function pickName(v) {
     voter = v;
-    const m = CFG.roster.find(x => x.v === v);
-    $('picked').textContent = `${m ? m.label : v} 님으로 투표합니다`;
-    $('picked').hidden = false;
-    $('go').disabled = false;
-    $('startErr').hidden = true;
-    $('skip').hidden = true;
-    if (CFG.needCode) { $('auth').hidden = false; }
     buildNames();
+    showPin();
   }
 
-  function start() {
-    if (!voter) {
-      $('startErr').textContent = '본인 이름을 골라주세요.';
-      $('startErr').hidden = false; return;
-    }
-    if (CFG.needCode && !/^\d{4}$/.test($('code').value.trim())) {
-      $('startErr').textContent = '전화번호 뒷 4자리를 넣어주세요.';
-      $('startErr').hidden = false; $('code').focus(); return;
-    }
-    $('startErr').hidden = true;
-    $('skip').hidden = true;
-    enter();
+  // ---------- 로그인 ----------
+  // 이름을 고르면 번호 화면으로 넘어간다. 폰에서 한 손으로 누르도록 키패드를 쓴다.
+  // 번호는 숨은 input(#code)에 담는다 — 다른 화면들이 그 값을 그대로 쓴다.
+  function showPin() {
+    const m = CFG.roster.find(x => x.v === voter);
+    $('pinWho').textContent = `${m ? m.label : voter} 님`;
+    $('code').value = '';
+    $('pinErr').hidden = true;
+    $('pinSkip').hidden = true;
+    paintDots();
+    show('pin');
+    window.scrollTo(0, 0);
+    if (!CFG.needCode) login();          // 본인 확인을 안 쓰는 설정이면 바로 통과
   }
 
-  // ---------- 들어가기 ----------
-  // 이름 + 뒷 4자리로 두 가지를 한 번에 읽는다: 내 유니폼 투표, 보드에 적어둔 내 자리.
-  // 자리를 아직 안 적었으면 선수 정보부터 받고, 적어뒀으면 바로 대시보드로 간다.
-  //
-  // 번호가 틀리면 지난 투표는 보여주지 않는다(남의 선택을 보는 창구가 되면 안 된다).
-  // 그래도 막지는 않는다 — 「그냥 들어가기」로 넘어갈 수 있다.
-  async function enter() {
-    const btn = $('go'), was = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = '불러오는 중…';
+  function paintDots() {
+    const len = $('code').value.length;
+    [...$('dots').children].forEach((d, i) => d.classList.toggle('on', i < len));
+  }
+
+  function tapKey(k) {
+    const cur = $('code').value;
+    if (k === 'del') $('code').value = cur.slice(0, -1);
+    else if (cur.length < 4) $('code').value = cur + k;
+    $('pinErr').hidden = true;
+    $('pinSkip').hidden = true;
+    paintDots();
+    if ($('code').value.length === 4) login();     // 네 자리가 차면 바로 확인한다
+  }
+
+  async function login() {
+    if (CFG.needCode && !/^\d{4}$/.test($('code').value)) return;
+    const pad = $('keypad');
+    pad.classList.add('busy');
     try {
       const [v, b] = await Promise.all([fetchMine(), fetchBoard()]);
+      BOARD = b;
+      readMe();
       if (v === 'badcode') {
-        $('startErr').textContent = '전화번호 뒷 4자리가 맞지 않습니다.';
-        $('startErr').hidden = false;
-        $('skip').hidden = false;
+        $('pinErr').textContent = '번호가 맞지 않습니다. 다시 눌러보세요.';
+        $('pinErr').hidden = false;
+        $('pinSkip').hidden = false;       // 틀려도 막지는 않는다 (기존 방침)
+        $('code').value = '';
+        paintDots();
         return;
       }
       MYVOTE = v;
-      BOARD = b;
-      readMe();
-      if (me.pos.length) showHome(); else showPlayer();
+      afterLogin();
     } catch (e) {
       MYVOTE = null; BOARD = null; me = { pos: [], foot: '' };
-      showPlayer();                       // 조회가 안 되는 것이 입력을 막지는 않는다
+      afterLogin();                        // 조회가 안 되는 것이 입력을 막지는 않는다
     } finally {
-      btn.disabled = false;
-      btn.textContent = was;
+      pad.classList.remove('busy');
     }
+  }
+
+  // 들어오면 **유니폼부터 확인**시키고, 그다음 자리를 받는다 (총무 확인 2026-10-17).
+  // 둘 다 끝낸 사람은 대시보드로 바로 간다.
+  function afterLogin() {
+    if (me.pos.length) showHome(); else showKit();
+  }
+
+  // ---------- 내 유니폼 확인 ----------
+  function showKit() {
+    const m = CFG.roster.find(x => x.v === voter);
+    $('ktWho').textContent = `${m ? m.label : voter} 님`;
+    const voted = !!(MYVOTE && MYVOTE.voted);
+    if (voted) {
+      $('ktTitle').textContent = '이 유니폼을 고르셨습니다';
+      $('ktLead').textContent = '맞으면 넘어가서 뛸 자리를 알려주세요.';
+      $('ktList').innerHTML = MYVOTE.picks.map((id, i) => `
+        <div class="mine"><b>${i + 1}순위</b><img src="/kits/${id}.jpg?v=${V}" alt="">
+        <span>${BY[id] ? BY[id].name : id}</span></div>`).join('');
+      $('ktList').hidden = false;
+      $('ktNext').textContent = '확인했습니다 · 자리 고르러 가기';
+    } else {
+      $('ktTitle').textContent = '유니폼 투표를 아직 안 하셨습니다';
+      $('ktLead').textContent = CFG.open === false
+        ? '투표가 마감되었습니다.'
+        : `2027 시즌 유니폼을 회원 투표로 정합니다. ${CFG.kits.length}종 중 ${need()}개, 2~3분이면 됩니다.`;
+      $('ktList').hidden = true;
+      $('ktNext').textContent = '나중에 하기 · 자리 고르러 가기';
+    }
+    $('ktVote').hidden = voted || CFG.open === false;
+    $('ktRevote').hidden = !(voted && MYVOTE.canEdit);
+    show('kit');
+    window.scrollTo(0, 0);
   }
 
   async function fetchMine() {
@@ -275,6 +311,24 @@
         '<button type="button" class="primary" data-go="player">적으러 가기</button>', true));
     }
 
+    // 내 팀 — 감독이 뽑고 배치한 결과
+    const mt = myTeam();
+    if (mt >= 0) {
+      const nm = (BOARD.names || [])[mt] || `${mt ? 'B' : 'A'}팀`;
+      const placed = Object.keys((BOARD.formation || [])[mt] || {}).length
+        && (BOARD.formation[mt].pieces || {})[voter];
+      out.push(card('team', '내 팀', `${nm} · ${(BOARD.teams[mt] || []).length}명`,
+        `<p class="note">${placed ? '감독이 자리까지 정했습니다.' : '감독이 아직 자리를 배치하지 않았습니다.'}</p>`,
+        '<button type="button" class="primary" data-go="team">팀과 포메이션 보기</button>', true));
+    } else if (BOARD && BOARD.phase !== 'setup') {
+      // 팀을 짜는 중인데 아직 안 불린 분. 빈 화면보다 한 줄이라도 알려주는 편이 낫다.
+      const draft = BOARD.phase === 'draft';
+      out.push(card('team', '내 팀', draft ? '아직 안 뽑히셨습니다' : '팀에 들지 않으셨습니다',
+        `<p class="note">${draft
+          ? '감독들이 한 명씩 번갈아 뽑는 중입니다. 조금 뒤에 다시 보세요.'
+          : '이번 경기 팀에는 들어가지 않으셨습니다. 총무에게 문의해 주세요.'}</p>`));
+    }
+
     // 자체전 보드
     if (BOARD) {
       const ph = BOARD.phase;
@@ -290,6 +344,62 @@
     $('cards').innerHTML = out.length ? out.join('')
       : '<p class="lead">지금은 하실 일이 없습니다. 고맙습니다.</p>';
     show('home');
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- 내 팀 ----------
+  // 감독이 뽑고 배치한 결과를 회원이 읽기만 한다. 고칠 수 있는 것은 없다.
+  const myTeam = () => (BOARD && BOARD.teams ? BOARD.teams.findIndex(t => (t || []).includes(voter)) : -1);
+  const labOf = v => {
+    const m = (BOARD.members || []).find(x => x.v === v);
+    return (m && m.label) || v;
+  };
+  const posOfV = v => {
+    const m = (BOARD.members || []).find(x => x.v === v);
+    return (m && m.pos) || [];
+  };
+
+  function showTeam() {
+    const t = myTeam();
+    const nm = t >= 0 ? ((BOARD.names || [])[t] || `${t ? 'B' : 'A'}팀`) : '';
+    const color = t >= 0 ? ((BOARD.colors || [])[t] || '#2e86de') : '#888';
+    // 감독은 {v, label} 로 내려온다. 이름만 꺼내 쓴다.
+    const co = t >= 0 ? (BOARD.coaches || [])[t] : null;
+    const coach = co && (typeof co === 'string' ? co : (co.label || co.v));
+
+    $('tmTag').textContent = BOARD && BOARD.phase === 'done' ? '확정된 팀' : '아직 바뀔 수 있습니다';
+    $('tmName').textContent = nm;
+    $('tmName').style.color = color;
+    $('tmLead').textContent = coach ? `${coach} 감독` : '감독 미정';
+
+    const f = (BOARD.formation || [])[t] || {};
+    const pieces = f.pieces || {};
+    const names = Object.keys(pieces);
+    if (names.length) {
+      $('tmField').innerHTML = names.map(v => {
+        const q = pieces[v];
+        const first = (posOfV(v)[0]) || '';
+        return `<span class="fp${v === voter ? ' me' : ''}" style="left:${q.x * 100}%;top:${q.y * 100}%">
+          <i style="background:${color}">${first}</i><b>${labOf(v)}</b></span>`;
+      }).join('');
+      $('tmField').hidden = false;
+      $('tmNote').textContent = f.note ? `감독 메모 — ${f.note}` : `포메이션 ${f.id || ''}`;
+      $('tmNote').hidden = false;
+    } else {
+      $('tmField').hidden = true;
+      $('tmNote').textContent = '감독이 아직 말을 배치하지 않았습니다. 팀원만 먼저 보여드립니다.';
+      $('tmNote').hidden = false;
+    }
+
+    const list = (BOARD.teams || [])[t] || [];
+    $('tmListTitle').hidden = !list.length;
+    $('tmList').innerHTML = list.map(v => {
+      const ps = posOfV(v).join(' · ');
+      return `<li${v === voter ? ' class="me"' : ''}><b>${labOf(v)}</b>
+        <span>${ps || '자리 미입력'}</span></li>`;
+    }).join('');
+
+    show('team');
     window.scrollTo(0, 0);
   }
 
@@ -409,8 +519,16 @@
   $('names').addEventListener('click', e => {
     const b = e.target.closest('.nm'); if (b) pickName(b.dataset.v);
   });
-  $('go').addEventListener('click', start);
-  $('code').addEventListener('keydown', e => { if (e.key === 'Enter') start(); });
+  $('pinBack').addEventListener('click', () => { show('start'); window.scrollTo(0, 0); });
+  $('keypad').addEventListener('click', e => {
+    const b = e.target.closest('button[data-k]'); if (!b) return;
+    tapKey(b.dataset.k);
+  });
+  $('pinSkip').addEventListener('click', () => { MYVOTE = null; afterLogin(); });
+  $('ktNext').addEventListener('click', showPlayer);
+  $('ktVote').addEventListener('click', toChoose);
+  $('ktRevote').addEventListener('click', toChoose);
+  $('tmBack').addEventListener('click', showHome);
 
   $('grid').addEventListener('click', e => {
     const mag = e.target.closest('.mag');
@@ -439,13 +557,8 @@
   });
   $('recode').addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
   $('again').addEventListener('click', () => { show('choose'); window.scrollTo(0, 0); });
-  $('toHome').addEventListener('click', showHome);
-
-  // 번호가 틀려도 들어갈 수는 있다. 지난 투표만 안 보여줄 뿐이다.
-  $('skip').addEventListener('click', () => {
-    MYVOTE = null;
-    fetchBoard().then(b => { BOARD = b; readMe(); if (me.pos.length) showHome(); else showPlayer(); });
-  });
+  // 투표를 마치면 자리를 아직 안 적은 분은 그리로, 다 한 분은 대시보드로
+  $('toHome').addEventListener('click', () => { if (me.pos.length) showHome(); else showPlayer(); });
 
   $('pitch').addEventListener('click', e => {
     const b = e.target.closest('.zone'); if (!b) return;
@@ -466,11 +579,14 @@
     const b = e.target.closest('[data-go]'); if (!b) return;
     if (b.dataset.go === 'vote') toChoose();
     if (b.dataset.go === 'player') showPlayer();
+    if (b.dataset.go === 'team') showTeam();
   });
   $('hmBack').addEventListener('click', () => { show('start'); window.scrollTo(0, 0); });
-  // 번호를 고쳐 넣기 시작하면 앞서 띄운 오류를 치운다
-  $('code').addEventListener('input', () => {
-    $('skip').hidden = true; $('startErr').hidden = true;
+  // 폰 키보드로도 칠 수 있게 — 키패드와 같은 값을 넣는다
+  document.addEventListener('keydown', e => {
+    if (!$('pin').classList.contains('on')) return;
+    if (/^[0-9]$/.test(e.key)) tapKey(e.key);
+    else if (e.key === 'Backspace') tapKey('del');
   });
 
   boot();

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=16">
+<link rel="stylesheet" href="/style.css?v=17">
 </head>
 <body>
 
@@ -16,8 +16,8 @@
 <section id="start" class="screen on">
   <div class="wrap">
     <p class="eyebrow" id="roundTag">한울타리 FC</p>
-    <h1>안녕하세요<br>본인 이름을 골라주세요</h1>
-    <p class="lead" id="intro">들어가시면 할 일을 모아서 보여드립니다.</p>
+    <h1>본인 이름을<br>골라주세요</h1>
+    <p class="lead" id="intro">이름을 누르면 번호 입력으로 넘어갑니다.</p>
 
     <div id="timer" class="timer" hidden>
       <span class="tlabel">마감까지</span>
@@ -30,24 +30,62 @@
       <div id="names" class="names" role="listbox" aria-label="회원 명부"></div>
     </div>
 
-    <div id="auth" class="auth" hidden>
-      <label for="code">본인 확인 — 전화번호 뒷 4자리</label>
-      <input id="code" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000">
-      <p class="why">다른 분 이름으로 들어가는 걸 막기 위한 것입니다.</p>
-    </div>
-
     <p id="startErr" class="err" hidden></p>
-    <p id="picked" class="picked" hidden></p>
-    <div class="stick">
-      <button id="go" class="primary" disabled>들어가기</button>
-      <button id="skip" class="ghost" hidden>번호가 맞습니다. 그냥 들어가기</button>
-    </div>
     <p class="note" id="statusNote"></p>
     <a class="adminlink" href="/results.html">관리자</a>
   </div>
 </section>
 
-<!-- 2. 선수 정보 — 들어오면 가장 먼저 받는다 -->
+<!-- 2. 로그인 — 전화번호 뒷 4자리 -->
+<section id="pin" class="screen">
+  <div class="wrap pinwrap">
+    <button id="pinBack" class="backlink">‹ 이름 다시 고르기</button>
+    <p class="eyebrow">본인 확인</p>
+    <h2 id="pinWho"></h2>
+    <p class="lead">전화번호 <b>뒷 4자리</b>를 눌러주세요.</p>
+
+    <div class="dots" id="dots" aria-label="입력한 자리 수">
+      <i></i><i></i><i></i><i></i>
+    </div>
+    <p id="pinErr" class="err" hidden></p>
+
+    <div class="keypad" id="keypad">
+      <button type="button" data-k="1">1</button>
+      <button type="button" data-k="2">2</button>
+      <button type="button" data-k="3">3</button>
+      <button type="button" data-k="4">4</button>
+      <button type="button" data-k="5">5</button>
+      <button type="button" data-k="6">6</button>
+      <button type="button" data-k="7">7</button>
+      <button type="button" data-k="8">8</button>
+      <button type="button" data-k="9">9</button>
+      <button type="button" class="blank" disabled></button>
+      <button type="button" data-k="0">0</button>
+      <button type="button" data-k="del" class="del" aria-label="지우기">⌫</button>
+    </div>
+
+    <p class="why">다른 분 이름으로 들어가는 걸 막기 위한 것입니다.</p>
+    <button id="pinSkip" class="ghost" hidden>번호가 맞습니다. 그냥 들어가기</button>
+    <input id="code" type="hidden" value="">
+  </div>
+</section>
+
+<!-- 3. 내 유니폼 확인 — 로그인하면 가장 먼저 -->
+<section id="kit" class="screen">
+  <div class="wrap">
+    <p class="eyebrow" id="ktWho"></p>
+    <h2 id="ktTitle"></h2>
+    <p class="lead" id="ktLead"></p>
+    <div id="ktList" class="mylist"></div>
+    <div class="stick">
+      <button id="ktNext" class="primary">확인했습니다 · 자리 고르러 가기</button>
+      <button id="ktVote" class="ghost" hidden>유니폼 투표하기</button>
+      <button id="ktRevote" class="ghost" hidden>다시 고르기</button>
+    </div>
+  </div>
+</section>
+
+<!-- 4. 선수 정보 -->
 <section id="player" class="screen">
   <div class="wrap">
     <p class="eyebrow" id="plEyebrow">선수 정보</p>
@@ -70,7 +108,7 @@
   </div>
 </section>
 
-<!-- 3. 대시보드 — 지금 열려 있는 일만 모아서 보여준다 -->
+<!-- 5. 대시보드 -->
 <section id="home" class="screen">
   <div class="wrap">
     <p class="eyebrow">한울타리 FC</p>
@@ -81,7 +119,23 @@
   </div>
 </section>
 
-<!-- 4. 디자인 고르기 -->
+<!-- 6. 내 팀 — 감독이 짠 결과를 회원이 본다 -->
+<section id="team" class="screen">
+  <div class="wrap">
+    <button id="tmBack" class="backlink">‹ 돌아가기</button>
+    <p class="eyebrow" id="tmTag">내 팀</p>
+    <h2 id="tmName"></h2>
+    <p class="lead" id="tmLead"></p>
+
+    <div id="tmField" class="fpitch" hidden></div>
+    <p id="tmNote" class="note" hidden></p>
+
+    <h3 class="sub" id="tmListTitle" hidden>팀원</h3>
+    <ul id="tmList" class="tmlist"></ul>
+  </div>
+</section>
+
+<!-- 7. 디자인 고르기 -->
 <section id="choose" class="screen">
   <header class="bar">
     <div class="brand">2027 한울타리 FC</div>
@@ -97,7 +151,7 @@
   </footer>
 </section>
 
-<!-- 4-1. 제출 직전 번호 다시 확인 -->
+<!-- 7-1. 제출 직전 번호 다시 확인 -->
 <div id="recheck" class="sheet" hidden>
   <div class="sheetbox">
     <h3>전화번호 뒷 4자리를 확인해 주세요</h3>
@@ -109,7 +163,7 @@
   </div>
 </div>
 
-<!-- 4-2. 크게 보기 -->
+<!-- 7-2. 크게 보기 -->
 <div id="zoom" class="zoom" hidden>
   <button class="zclose" id="zclose" aria-label="닫기">✕</button>
   <button class="znav zprev" id="zprev" aria-label="이전">‹</button>
@@ -121,7 +175,7 @@
   </div>
 </div>
 
-<!-- 5. 투표 끝 -->
+<!-- 8. 투표 끝 -->
 <section id="done" class="screen">
   <div class="wrap">
     <p class="eyebrow">제출 완료</p>
@@ -130,13 +184,13 @@
     <div id="mylist" class="mylist"></div>
     <p id="doneMsg" class="note"></p>
     <div class="stick">
-      <button id="toHome" class="primary">할 일 더 보기</button>
+      <button id="toHome" class="primary">다음으로</button>
       <button id="again" class="ghost">다시 고르기</button>
     </div>
   </div>
 </section>
 
 <script src="/core.js?v=3"></script>
-<script src="/app.js?v=18"></script>
+<script src="/app.js?v=19"></script>
 </body>
 </html>
