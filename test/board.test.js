@@ -414,3 +414,55 @@ test('팀 이름은 확정된 뒤에도 바꿀 수 있다', () => {
   D.rename(st, 1, '타리팀', ctx);
   assert.equal(st.names[1], '타리팀');
 });
+
+test('감독 위임: 위임받은 사람도 그 팀의 감독 권한을 갖는다', () => {
+  const ctx = mkctx({ ageOn: false });
+  const st = started(ctx, 0);
+  assert.equal(D.coachTeam(st, '감독가'), 0);
+  assert.equal(D.coachTeam(st, '가'), -1);
+  D.delegate(st, 1, '라', true, ctx);                          // 감독나 팀에 위임
+  assert.equal(D.coachTeam(st, '라'), 1);                      // 이제 라는 1팀의 감독 권한
+  assert.match(st.log.at(-1).text, /백팀: 라 님에게 감독 기능을 위임/);
+  D.delegate(st, 1, '라', true, ctx);                          // 다시 위임해도 그대로
+  assert.deepEqual(st.delegates[1], ['라']);
+  D.delegate(st, 1, '라', false, ctx);
+  assert.equal(D.coachTeam(st, '라'), -1);
+  assert.match(st.log.at(-1).text, /위임을 풀었습니다/);
+  D.delegate(st, 1, '라', false, ctx);                         // 없는 사람을 풀어도 조용히 지나간다
+});
+
+test('감독 위임: 막아야 하는 경우', () => {
+  const ctx = mkctx({ ageOn: false });
+  const st = started(ctx, 0);
+  assert.throws(() => D.delegate(st, 0, '감독가', true, ctx), /본인/);
+  assert.throws(() => D.delegate(st, 0, '감독나', true, ctx), /상대 팀 감독/);
+  assert.throws(() => D.delegate(st, 0, '없는사람', true, ctx), /명부에 없는/);
+  assert.throws(() => D.delegate(st, 2, '가', true, ctx), /알 수 없/);
+  D.pick(st, 0, '가', ctx); D.pick(st, 1, '나', ctx);
+  assert.throws(() => D.delegate(st, 0, '나', true, ctx), /상대 팀 선수/);   // 1팀에 뽑힌 사람
+  D.delegate(st, 1, '다', true, ctx);
+  assert.throws(() => D.delegate(st, 0, '다', true, ctx), /상대 팀 선수/);   // 1팀이 위임한 사람
+  const s2 = started(ctx, 0);
+  for (const n of ['가', '나', '다']) D.delegate(s2, 0, n, true, ctx);
+  assert.throws(() => D.delegate(s2, 0, '라', true, ctx), /3명까지/);
+  assert.throws(() => D.delegate(D.initial(), 0, '가', true, ctx), /감독이 정해진 뒤/);
+});
+
+test('감독 위임: 옛 저장 상태(delegates 없음)에서도 읽고 쓴다', () => {
+  const ctx = mkctx({ ageOn: false });
+  const st = started(ctx, 0);
+  delete st.delegates;                                          // 이 필드가 생기기 전에 저장된 상태
+  assert.equal(D.coachTeam(st, '감독나'), 1);
+  assert.equal(D.coachTeam(st, '가'), -1);
+  D.delegate(st, 0, '가', true, ctx);
+  assert.deepEqual(st.delegates, [['가'], []]);
+});
+
+test('감독을 다시 정하면 이전 위임은 사라진다', () => {
+  const ctx = mkctx({ ageOn: false });
+  const st = D.initial();
+  D.setup(st, { coaches: ['감독가', '감독나'] }, ctx);
+  D.delegate(st, 0, '가', true, ctx);
+  D.setup(st, { coaches: ['감독가', '감독나'] }, ctx);
+  assert.deepEqual(st.delegates, [[], []]);
+});

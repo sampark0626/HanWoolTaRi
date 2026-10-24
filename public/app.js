@@ -628,7 +628,15 @@
   // 않고 같은 규칙·같은 화면을 쓴다. 감독 인증은 로그인에서 끝났으니 sessionStorage 로 넘겨
   // 한 번 더 묻지 않는다 (board.js 가 boardCoach 를 읽는다).
   const coachId = c => (c ? (typeof c === 'string' ? c : c.v) : '');
-  const coachTeamOf = v => (BOARD && BOARD.coaches ? BOARD.coaches.findIndex(c => coachId(c) === v) : -1);
+  // 감독이거나 위임받은 팀. 위임받은 회원에게도 「감독」 탭이 생긴다.
+  const coachTeamOf = v => {
+    if (!BOARD || !BOARD.coaches) return -1;
+    const c = BOARD.coaches.findIndex(x => coachId(x) === v);
+    if (c >= 0) return c;
+    const dl = BOARD.delegates || [[], []];
+    return dl[0].some(x => coachId(x) === v) ? 0 : dl[1].some(x => coachId(x) === v) ? 1 : -1;
+  };
+  const isDelegateV = v => coachTeamOf(v) >= 0 && !BOARD.coaches.some(x => coachId(x) === v);
 
   function setHomeTab(t, quiet) {
     if (t === 'coach' && coachTeamOf(voter) < 0) t = 'me';
@@ -684,7 +692,7 @@
        <div class="adchips">${ms.map(m => {
         const t = coachTeamOf(m.v);
         return `<button type="button" class="adchip${m.active ? '' : ' off'}${t >= 0 ? ' co' : ''}" data-v="${esc(m.v)}">
-          ${esc(m.label)}${t >= 0 ? '<i>감독</i>' : ''}${m.active ? '' : '<em>휴면</em>'}</button>`;
+          ${esc(m.label)}${t >= 0 ? `<i>${isDelegateV(m.v) ? '위임' : '감독'}</i>` : ''}${m.active ? '' : '<em>휴면</em>'}</button>`;
       }).join('')}</div>`;
   }
 

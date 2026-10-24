@@ -430,3 +430,21 @@ body.embed .b-main { padding-top: 12px; }
 .b-srow .ft { flex: none; padding: 4px 8px; border-radius: 8px; font-size: 11.5px; font-weight: 900; color: #fff; white-space: nowrap; }
 .b-srow .ft.good { background: #1fa65a; } .b-srow .ft.ok { background: #e8a317; } .b-srow .ft.weak { background: #8a919c; }
 #slOut { margin-top: 0; }
+
+/* ───────────────────────────────────────────────────────────────
+   감독 위임 카드 (2026-10-24)
+   ─────────────────────────────────────────────────────────────── */
+.b-deleg { margin: 2px 0 12px; padding: 0 12px; background: #fff; border: 2px solid var(--line); border-radius: 12px; }
+.b-deleg summary { padding: 12px 0; font-size: 14px; font-weight: 900; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+.b-deleg summary::-webkit-details-marker { display: none; }
+.b-deleg summary::after { content: '▾'; margin-left: auto; color: var(--mute); }
+.b-deleg[open] summary::after { content: '▴'; }
+.b-deleg summary em { font-style: normal; font-size: 12px; font-weight: 800; color: var(--mute); }
+.b-deleg p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.55; color: var(--mute); }
+.b-deleg p b { color: var(--ink); }
+.b-dlist { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.b-dlist li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: #f4f6f8; }
+.b-dlist li b { flex: 1; font-size: 15px; font-weight: 800; }
+.b-dlist li.none { font-size: 13px; color: var(--mute); }
+.b-dadd { display: flex; gap: 8px; padding-bottom: 12px; }
+.b-dadd select { flex: 1; min-width: 0; padding: 10px 12px; font: inherit; font-size: 15px; font-weight: 700; border: 2px solid var(--line); border-radius: 11px; background: #fff; color: var(--ink); }

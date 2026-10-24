@@ -56,6 +56,7 @@ module.exports = function mountBoard(app, deps) {
       names: st.names,
       colors: st.colors,
       coaches: st.coaches.map(n => (n ? { v: n, label: labelOf(n) } : null)),
+      delegates: (st.delegates || [[], []]).map(l => l.map(n => ({ v: n, label: labelOf(n) }))),
       teams: st.teams,
       formation: st.formation,
       pool: D.poolOf(st, CTX),
@@ -84,8 +85,9 @@ module.exports = function mountBoard(app, deps) {
     }
     const name = String(body.name || '');
     const st = await store.state();
-    const team = name ? st.coaches.indexOf(name) : -1;
-    if (team < 0) { bad(res, '감독만 할 수 있습니다.', 403); return null; }
+    // 감독이거나, 감독이 위임한 사람. 위임받은 사람도 본인 이름과 본인 번호로 확인한다.
+    const team = D.coachTeam(st, name);
+    if (team < 0) { bad(res, '감독이나 위임받은 분만 할 수 있습니다.', 403); return null; }
     if (NEED_CODE) {
       if (!Object.prototype.hasOwnProperty.call(AUTH, name)) {
         bad(res, '연락처가 등록되지 않아 본인 확인을 할 수 없습니다. 총무에게 대신 요청해 주세요.', 403);
@@ -104,7 +106,7 @@ module.exports = function mountBoard(app, deps) {
       bad(res, '본인 확인 설정이 없어 지금은 총무만 할 수 있습니다.', 403);
       return null;
     }
-    return { team, admin: false };
+    return { team, admin: false, delegate: st.coaches[team] !== name };
   }
 
   // 감독 모드 화면용: 내 차례인지, 되돌릴 수 있는지, 연령대 현황.
@@ -212,6 +214,18 @@ module.exports = function mountBoard(app, deps) {
     if (!a) return;
     const st = await store.update(s => D.setFormation(s, a.team, req.body || {}, CTX));
     res.json({ ok: true, team: a.team, formation: st.formation[a.team] });
+  }));
+
+  // 감독 위임 — 그 팀 감독과 총무만 한다. 위임받은 사람은 다시 위임하지 못한다.
+  // 본문: who(위임받을 사람), on(기본 true, false 면 해제). 감독 인증은 name·code, 총무는 열쇠와 team.
+  app.post('/api/board/delegate', wrap(async (req, res) => {
+    const a = await coachAuth(req, res);
+    if (!a) return;
+    if (a.delegate) return bad(res, '위임받은 분은 다시 위임할 수 없습니다.', 403);
+    const who = String((req.body || {}).who || '');
+    const on = (req.body || {}).on !== false;
+    const st = await store.update(s => D.delegate(s, a.team, who, on, CTX));
+    res.json({ ok: true, team: a.team, delegates: (st.delegates || [[], []])[a.team] });
   }));
 
   // 팀 이름 — 감독은 자기 팀, 총무는 team 으로 고른 팀. 본문의 name 은 감독 이름이라 teamName 을 쓴다.

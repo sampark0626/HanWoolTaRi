@@ -56,7 +56,16 @@
   }
 
   const isAdmin = () => !!(S.admin && S.adminOk);
-  const coachTeam = () => (S.data && S.me ? S.data.coaches.findIndex(c => c && c.v === S.me.name) : -1);
+  // 이 이름이 감독이거나 위임받은 팀. 아니면 -1. 위임받은 분은 그 팀의 감독과 같은 일을 한다.
+  const teamOfName = (d, n) => {
+    const c = d.coaches.findIndex(x => x && x.v === n);
+    if (c >= 0) return c;
+    const dl = d.delegates || [[], []];
+    return dl[0].some(x => x.v === n) ? 0 : dl[1].some(x => x.v === n) ? 1 : -1;
+  };
+  const coachTeam = () => (S.data && S.me ? teamOfName(S.data, S.me.name) : -1);
+  // 진짜 감독인가 (위임받은 분이 아니라). 위임·해제는 진짜 감독과 총무만 한다.
+  const isRealCoach = () => !!(S.data && S.me && S.data.coaches.some(x => x && x.v === S.me.name));
   const actTeam = () => (isAdmin()
     ? (S.data && S.data.phase === 'draft' && S.data.turn != null ? S.data.turn : S.actTeam)
     : coachTeam());
@@ -282,7 +291,7 @@
     }
     const t = coachTeam();
     if (t >= 0) {
-      return `<div class="b-strip coach" style="--tc:${d.colors[t]}"><span>✓ 감독 모드 · ${esc(d.names[t])} ${esc(d.coaches[t].label)}님</span>
+      return `<div class="b-strip coach" style="--tc:${d.colors[t]}"><span>✓ ${isRealCoach() ? '감독' : '보조 감독(위임)'} 모드 · ${esc(d.names[t])} ${esc(lab(S.me.name))}님</span>
         ${EMBED ? '' : '<button type="button" class="b-mini" data-act="logout">나가기</button>'}</div>`;
     }
     if (EMBED) return '';          // 임베드에서는 감독 로그인을 다시 묻지 않는다
@@ -421,8 +430,13 @@
   function openCoach() {
     const d = S.data;
     csPick = '';
-    $('csWho').innerHTML = [0, 1].map(t => `<button type="button" data-n="${esc(d.coaches[t].v)}">
-      ${esc(d.coaches[t].label)}<small>${esc(d.names[t])} 감독</small></button>`).join('');
+    const who = [];
+    [0, 1].forEach(t => {
+      who.push({ v: d.coaches[t].v, label: d.coaches[t].label, sub: `${d.names[t]} 감독` });
+      ((d.delegates || [[], []])[t] || []).forEach(x => who.push({ v: x.v, label: x.label, sub: `${d.names[t]} 위임` }));
+    });
+    $('csWho').innerHTML = who.map(x => `<button type="button" data-n="${esc(x.v)}">
+      ${esc(x.label)}<small>${esc(x.sub)}</small></button>`).join('');
     $('csCode').value = ''; $('csErr').hidden = true;
     $('coachSheet').hidden = false; document.body.style.overflow = 'hidden'; S.busy++;
   }
@@ -476,7 +490,7 @@
 
   function renderForm() {
     // 메모·팀 이름을 쓰는 중에는 건드리지 않는다
-    if (document.activeElement && ['fmNote', 'fmName'].includes(document.activeElement.id)) return;
+    if (document.activeElement && ['fmNote', 'fmName', 'dgSel'].includes(document.activeElement.id)) return;
     const d = S.data, t = S.team, pane = $('pane-form');
     const seg = `<div class="b-seg">${[0, 1].map(i => `<button type="button" data-act="team" data-t="${i}" class="${t === i ? 'on' : ''}">
       ${esc(d.names[i])}${d.coaches[i] ? ' · ' + esc(d.coaches[i].label) : ''}</button>`).join('')}</div>`;
@@ -528,7 +542,24 @@
           <input id="fmName" type="text" maxlength="12" autocomplete="off" value="${esc(d.names[t])}">
           <button type="button" class="b-mini pri" data-act="rename">바꾸기</button></div>` : '';
 
-    pane.innerHTML = seg + nameRow + head + chips + pitch + sel + benchHtml + note + saved;
+    // 감독 위임 — 진짜 감독과 총무에게만 보인다. 위임받은 분은 다시 위임하지 못한다.
+    let deleg = '';
+    if (edit && (isAdmin() || isRealCoach())) {
+      const dl = (d.delegates || [[], []])[t] || [];
+      const cands = d.teams[t].filter(v => !(d.coaches[t] && d.coaches[t].v === v) && !dl.some(x => x.v === v));
+      deleg = `<details class="b-deleg"${dl.length ? ' open' : ''}>
+        <summary>감독 위임 <em>${dl.length ? dl.length + '명' : '없음'}</em></summary>
+        <p>감독이 오지 못하거나 도움이 필요할 때 <b>팀원에게 감독 기능</b>(선수 선택·확정·포메이션·팀 이름)을 넘깁니다.
+           위임받은 분은 자기 페이지에 <b>「감독」 탭</b>이 생깁니다. 언제든 해제할 수 있어요.</p>
+        <ul class="b-dlist">${dl.map(x => `<li><b>${esc(x.label)}</b>
+          <button type="button" class="b-mini" data-act="undeleg" data-v="${esc(x.v)}">해제</button></li>`).join('') ||
+          '<li class="none">아직 위임한 분이 없습니다.</li>'}</ul>
+        <div class="b-dadd"><select id="dgSel"><option value="">팀원에서 고르기</option>${cands.map(v =>
+          `<option value="${esc(v)}">${esc(lab(v))}</option>`).join('')}</select>
+          <button type="button" class="b-mini pri" data-act="deleg">위임</button></div></details>`;
+    }
+
+    pane.innerHTML = seg + nameRow + deleg + head + chips + pitch + sel + benchHtml + note + saved;
   }
 
   // ----- 편집 -----
@@ -929,6 +960,8 @@
     else if (a === 'auto') { if (canEdit(S.team)) { autoAll(S.team); renderForm(); toast('포지션을 보고 자동으로 앉혔습니다. 끌어서 고쳐 주세요.'); } }
     else if (a === 'rename') renameTeam();
     else if (a === 'clear') clearLineup();
+    else if (a === 'deleg') delegateTo(true, $('dgSel') && $('dgSel').value);
+    else if (a === 'undeleg') delegateTo(false, el.dataset.v);
     else if (a === 'slot') { if (canEdit(S.team)) openSlotSheet(S.team, +el.dataset.si); }
     else if (a === 'tobench') { toBench(S.team, S.sel); renderForm(); }
     else if (a === 'tofield') { placeBest(S.team, S.sel); renderForm(); }
@@ -1024,6 +1057,22 @@
     if (e.key !== 'Escape') return;
     closePos(); closeCoach(); closeAdmin(); closeSlot();
   });
+
+  // 감독 위임·해제 — 그 팀 감독과 총무만. 서버가 위임받은 분의 요청은 거절한다.
+  async function delegateTo(on, who) {
+    const t = S.team;
+    if (!canEdit(t) || !(isAdmin() || isRealCoach())) return;
+    if (!who) return toast('위임할 팀원을 골라주세요.');
+    const msg = on
+      ? `${lab(who)} 님에게 감독 기능을 위임할까요?\n선수 선택·확정·포메이션·팀 이름을 같이 할 수 있게 됩니다.`
+      : `${lab(who)} 님의 위임을 풀까요?`;
+    if (!confirm(msg)) return;
+    try {
+      await coachCall('/api/board/delegate', { who, on }, t);
+      toast(on ? `${lab(who)} 님에게 위임했습니다.` : '위임을 풀었습니다.');
+      S.sig = null; await load();
+    } catch (e) { toast(e.message); }
+  }
 
   // 팀 이름 바꾸기 — 감독은 자기 팀, 총무는 보고 있는 팀. 상대 팀과 같으면 서버가 거부한다.
   async function renameTeam() {

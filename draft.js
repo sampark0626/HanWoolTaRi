@@ -40,6 +40,7 @@ function initial() {
     window: { from: null, to: null },     // 회원 포지션 입력 기간 (ISO). 둘 다 null이면 항상 열림
     formation: [blankForm(), blankForm()],
     active: {},                           // 총무가 바꾼 활동/휴면 {이름: true|false}
+    delegates: [[], []],                  // 감독이 위임한 사람들 — 팀마다 이름 배열 (감독과 같은 권한)
     log: [],
   };
 }
@@ -130,6 +131,7 @@ function setup(st, body, ctx) {
   if (c.some(n => !ctx.roster.includes(n))) fail('명부에 없는 이름입니다.');
   if (c[0] === c[1]) fail('감독 두 명은 서로 다른 사람이어야 합니다.');
   st.coaches = c.slice();
+  st.delegates = [[], []];
   if (body.names != null) {
     const n = body.names;
     if (!Array.isArray(n) || n.length !== 2 ||
@@ -308,6 +310,46 @@ function setActive(st, member, value, ctx) {
   return st;
 }
 
+// 감독 위임 — 감독이 오지 못하거나 도움이 필요할 때 팀원에게 감독 기능을 넘긴다 (총무 확인 2026-10-24).
+// 위임받은 사람은 그 팀의 감독과 같은 일을 한다: 선수 고르기·되돌리기·최종 확정·포메이션·팀 이름.
+// 위임·해제는 그 팀 감독과 총무만 한다 — 위임받은 사람이 다시 넘기지는 못한다(board-routes.js).
+// 이 필드가 생기기 전에 저장된 상태에는 없으니 항상 없을 수 있다고 보고 읽는다.
+const DELEGATE_MAX = 3;
+const delegatesOf = st => st.delegates || [[], []];
+
+// 이 이름이 감독이거나 위임받은 팀. 아니면 -1.
+function coachTeam(st, name) {
+  if (!name) return -1;
+  const c = st.coaches.indexOf(name);
+  if (c >= 0) return c;
+  const d = delegatesOf(st);
+  return d[0].includes(name) ? 0 : d[1].includes(name) ? 1 : -1;
+}
+
+function delegate(st, team, name, on, ctx) {
+  if (team !== 0 && team !== 1) fail('팀을 알 수 없습니다.');
+  if (!st.coaches[team]) fail('감독이 정해진 뒤에 위임할 수 있습니다.', 409);
+  if (!ctx.roster.includes(name)) fail('명부에 없는 이름입니다.');
+  if (!st.delegates) st.delegates = [[], []];
+  const list = st.delegates[team];
+  if (on) {
+    if (name === st.coaches[team]) fail('본인에게는 위임할 수 없습니다.');
+    if (st.coaches.includes(name)) fail('상대 팀 감독에게는 위임할 수 없습니다.');
+    if (st.delegates[1 - team].includes(name) || st.teams[1 - team].includes(name))
+      fail('상대 팀 선수입니다. 우리 팀 팀원에게 위임해 주세요.');
+    if (list.includes(name)) return st;                        // 이미 위임했다
+    if (list.length >= DELEGATE_MAX) fail(`위임은 팀마다 ${DELEGATE_MAX}명까지입니다.`);
+    list.push(name);
+    note(st, 'delegate', `${st.names[team]}: ${lab(ctx, name)} 님에게 감독 기능을 위임했습니다.`, ctx);
+  } else {
+    const i = list.indexOf(name);
+    if (i < 0) return st;
+    list.splice(i, 1);
+    note(st, 'delegate', `${st.names[team]}: ${lab(ctx, name)} 님의 위임을 풀었습니다.`, ctx);
+  }
+  return st;
+}
+
 // 팀 이름 바꾸기 — 각 감독이 자기 팀 이름을 정한다 (총무 확인 2026-10-24).
 // 팀 구성이 시작된 뒤에도 된다(setup 은 시작 전에만 이름을 받는다). 상대 팀과 같으면 안 된다.
 function rename(st, team, name, ctx) {
@@ -340,5 +382,5 @@ function setFormation(st, team, body, ctx) {
 module.exports = {
   RuleError, UNKNOWN_BAND, initial, poolOf, balanceInfo, balanceTable, balanceOn, whyNot, canTake, bandOf,
   windowState, setWindow, setBalance, setup, start, pick, undo, confirm, finish, reopen,
-  release, reset, setActive, setFormation, rename,
+  release, reset, setActive, setFormation, rename, coachTeam, delegate, DELEGATE_MAX,
 };
