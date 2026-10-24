@@ -303,11 +303,13 @@
 
   function teamCard(d, t) {
     const members = d.teams[t];
+    // 포메이션을 짠 팀이면 스타팅은 이름 왼쪽에 초록불, 나머지는 빈 동그라미 — 말로 가르지 않는다.
+    const started = new Set(Object.keys(((d.formation || [])[t] || {}).pieces || {}));
     const rows = members.map(v => {
       const m = S.byV[v] || { label: v, pos: null };
       const isCo = d.coaches[t] && d.coaches[t].v === v;
-      return `<li><span class="nm1">${esc(m.label)}</span>${isCo ? '<span class="co">감독</span>' : ''}${bandTag(v)}
-        ${badges(m.pos)}${isAdmin() && !isCo ? `<button type="button" class="x" data-act="release" data-v="${esc(v)}">제외</button>` : ''}</li>`;
+      return `<li>${started.size ? `<i class="sdot${started.has(v) ? ' on' : ''}"></i>` : ''}<span class="nm1">${esc(m.label)}</span>${isCo ? '<span class="co">감독</span>' : ''}${bandTag(v)}
+        ${badges(m.pos)}${isAdmin() && !isCo ? `<button type="button" class="x" data-act="release" data-v="${esc(v)}">선택 취소</button>` : ''}</li>`;
     }).join('');
     const turn = d.phase === 'draft' && d.turn === t ? ' turn' : '';
     return `<div class="b-team${turn}" style="--tc:${d.colors[t]}">
@@ -510,8 +512,9 @@
             `<option value="${x.id}"${x.id === f.id ? ' selected' : ''}>${x.id}</option>`).join('')}</select>
           <button type="button" class="b-mini" data-act="auto">자동 배치</button>
           <button type="button" class="b-mini" data-act="clear">초기화</button></div>
-        <p class="b-fhint">말이나 빈 자리, 벤치 선수를 <b>누르면</b> 어울리는 순서로 목록이 뜹니다. 끌어서 옮길 수도 있어요.</p>`
+        <p class="b-fhint">말이나 빈 자리, 후보 선수를 <b>누르면</b> 어울리는 순서로 목록이 뜹니다. 끌어서 옮길 수도 있어요.</p>`
       : `<div class="b-fhead"><b>${esc(f.id)}</b><span>감독이 짠 라인업입니다</span></div>`;
+    const shareRow = `<div class="b-sharerow"><button type="button" class="b-mini" data-act="share">라인업 이미지 저장 · 공유</button></div>`;
     const chips = '';
 
     const def = C.FORMATION_BY_ID[f.id];
@@ -519,17 +522,17 @@
     const toks = Object.entries(f.pieces).map(([n, p]) => tokHtml(n, p, t)).join('');
     const pitch = `<div class="b-pitch${edit ? '' : ' ro'}" id="pitch" style="--tc:${color}">${LINES}${slots}${toks}</div>`;
 
-    let sel = '<div class="b-sel hint">말이나 벤치 선수를 누르면 정보가 나옵니다.</div>';
+    let sel = '<div class="b-sel hint">말이나 후보 선수를 누르면 정보가 나옵니다.</div>';
     if (S.sel) {
       const m = S.byV[S.sel], on = S.sel in f.pieces;
       sel = `<div class="b-sel"><div class="who"><b>${esc(m.label)}</b>${badges(m.pos)}</div>
-        ${edit ? (on ? `<button type="button" class="b-mini" data-act="tobench">벤치로</button>`
+        ${edit ? (on ? `<button type="button" class="b-mini" data-act="tobench">후보로</button>`
           : `<button type="button" class="b-mini pri" data-act="tofield">필드에 올리기</button>`) : ''}</div>`;
     }
 
-    const benchHtml = `<div class="b-bench" id="bench"><h4>벤치 · 교체 ${bench.length}명${edit ? ' (끌어서 필드에 올리고, 필드의 말을 여기로 끌면 벤치로)' : ''}</h4>
+    const benchHtml = `<div class="b-bench" id="bench"><h4>후보 ${bench.length}명${edit ? ' (끌어서 필드에 올리고, 필드의 말을 여기로 끌면 후보로)' : ''}</h4>
       <div class="bl">${bench.map(v => `<span class="bn${S.sel === v ? ' sel' : ''}" data-n="${esc(v)}">${esc(lab(v))}${badges(posOf(v))}</span>`).join('') ||
-        '<span class="nopos">벤치 선수가 없습니다</span>'}</div></div>`;
+        '<span class="nopos">후보 선수가 없습니다</span>'}</div></div>`;
 
     const note = edit
       ? `<textarea id="fmNote" class="b-note" maxlength="300" placeholder="작전 메모 — 예) 좌측 풀백은 오버래핑, 세트피스는 ○○가 맡기">${esc(f.note)}</textarea>`
@@ -559,7 +562,10 @@
           <button type="button" class="b-mini pri" data-act="deleg">위임</button></div></details>`;
     }
 
-    pane.innerHTML = seg + nameRow + deleg + head + chips + pitch + sel + benchHtml + note + saved;
+    pane.innerHTML = seg + nameRow + deleg + head + shareRow + chips + pitch + sel + benchHtml + note + saved;
+    // 읽기만 하는 화면에서는 후보 이름을 희망 포지션 자리에 작게 보여준다. 편집 화면에서는 눌러야 하는
+    // 자리와 겹치지 않도록 후보 목록으로만 보인다.
+    if (!edit && window.LU) requestAnimationFrame(() => LU.decoratePitch($('pitch'), S.data, t, f.pieces, 'board'));
   }
 
   // ----- 편집 -----
@@ -607,7 +613,7 @@
   function placeBest(t, name) {
     const f = S.fm[t];
     if (onField(t).length >= C.FIELD_MAX) {
-      toast('필드가 가득 찼습니다. 선수를 벤치로 보내거나, 벤치 선수를 필드의 말 위로 끌어 교체하세요.');
+      toast('필드가 가득 찼습니다. 선수를 후보로 보내거나, 후보 선수를 필드의 말 위로 끌어 교체하세요.');
       return;
     }
     const taken = Object.values(f.pieces);
@@ -635,7 +641,7 @@
     const t = S.team;
     if (!canEdit(t)) return;
     if (!onField(t).length) return toast('비울 선수가 없습니다.');
-    if (!confirm('라인업을 모두 비울까요?\n선수는 전부 벤치로 갑니다. (포메이션과 메모는 그대로입니다)')) return;
+    if (!confirm('라인업을 모두 비울까요?\n선수는 전부 후보로 갑니다. (포메이션과 메모는 그대로입니다)')) return;
     S.fm[t].pieces = {}; S.sel = null; touch(t); renderForm();
     toast('라인업을 비웠습니다.');
   }
@@ -681,7 +687,7 @@
       .sort((a, b) => a.c - b.c || onF(a.n) - onF(b.n) || lab(a.n).localeCompare(lab(b.n), 'ko'));
     const where = n => {
       if (n === occ) return '지금 이 자리';
-      if (!(n in f.pieces)) return '벤치';
+      if (!(n in f.pieces)) return '후보';
       const k = nearestSlot(t, f.pieces[n]);
       return k >= 0 ? `필드 · ${slotsOf(t)[k].role}` : '필드';
     };
@@ -694,7 +700,7 @@
         <span class="st">${esc(where(n))}</span><span class="ft ${cl}">${tx}</span></button>`;
     }).join('');
     $('slOut').hidden = !occ;
-    $('slOut').textContent = occ ? `${lab(occ)} 님을 벤치로` : '';
+    $('slOut').textContent = occ ? `${lab(occ)} 님을 후보로` : '';
     sh = { t, mode: 'slot', si, occ };
     showSlotSheet();
   }
@@ -715,7 +721,7 @@
         <span class="ft ${cl}">${tx}</span></button>`;
     }).join('');
     $('slOut').hidden = !(name in f.pieces);
-    $('slOut').textContent = `${lab(name)} 님을 벤치로`;
+    $('slOut').textContent = `${lab(name)} 님을 후보로`;
     sh = { t, mode: 'player', name };
     showSlotSheet();
   }
@@ -727,7 +733,7 @@
     const occ = occupantAt(t, slot, name), prev = f.pieces[name];
     if (occ) {
       if (prev) { f.pieces[occ] = { x: prev.x, y: prev.y }; toast(`${lab(name)} ↔ ${lab(occ)} 자리 교환`); }
-      else { delete f.pieces[occ]; toast(`${lab(occ)} → 벤치`); }
+      else { delete f.pieces[occ]; toast(`${lab(occ)} → 후보`); }
       f.pieces[name] = { x: slot.x, y: slot.y }; touch(t);
     } else if (!prev && onField(t).length >= C.FIELD_MAX) {
       placeAt(t, name, slot.x, slot.y);
@@ -884,7 +890,7 @@
         ${d.phase === 'draft' ? '<button type="button" class="b-mini" data-act="asFinish">여기서 선택 마감 (남은 선수는 팀 없음)</button>' : ''}
         ${d.phase === 'review' || d.phase === 'done' ? '<button type="button" class="b-mini" data-act="asReopen">한 단계 되돌리기</button>' : ''}
         <button type="button" class="b-mini danger" data-act="asReset">처음으로 되돌리기</button></div>
-        <p style="font-size:12px;color:var(--mute);line-height:1.6;margin-top:8px">팀 구성 탭에서 각 팀원의 <b>제외</b>를 누르면 한 명씩 풀로 돌릴 수 있습니다. 지금 차례인 팀의 선택·되돌리기·확정은 총무가 대신할 수 있습니다.</p></div>`;
+        <p style="font-size:12px;color:var(--mute);line-height:1.6;margin-top:8px">팀 구성 탭에서 각 팀원의 <b>선택 취소</b>를 누르면 한 명씩 선수 목록으로 돌릴 수 있습니다. 지금 차례인 팀의 선택·되돌리기·확정은 총무가 대신할 수 있습니다.</p></div>`;
     }
     const bal = d.phase === 'setup' || d.phase === 'draft'
       ? `<div class="b-adminblock"><h4>연령대 비율 맞춤</h4><div class="b-adminrow">
@@ -952,7 +958,7 @@
       S.sig = null; load();
     }
     else if (a === 'release') {
-      if (!confirm(`${lab(el.dataset.v)} 님을 팀에서 빼고 선수 풀로 돌릴까요?`)) return;
+      if (!confirm(`${lab(el.dataset.v)} 님의 선택을 취소하고 선수 목록으로 돌릴까요?`)) return;
       adminDo('/api/board/admin/release', { player: el.dataset.v }, '풀로 돌렸습니다.');
     }
     else if (a === 'team') { S.team = +el.dataset.t; S.sel = null; renderForm(); }
@@ -960,6 +966,10 @@
     else if (a === 'auto') { if (canEdit(S.team)) { autoAll(S.team); renderForm(); toast('포지션을 보고 자동으로 앉혔습니다. 끌어서 고쳐 주세요.'); } }
     else if (a === 'rename') renameTeam();
     else if (a === 'clear') clearLineup();
+    else if (a === 'share') {
+      const f = S.fm[S.team];
+      if (window.LU && f) LU.openShare(LU.fromBoard(S.data, S.team, f.pieces, f.id));
+    }
     else if (a === 'deleg') delegateTo(true, $('dgSel') && $('dgSel').value);
     else if (a === 'undeleg') delegateTo(false, el.dataset.v);
     else if (a === 'slot') { if (canEdit(S.team)) openSlotSheet(S.team, +el.dataset.si); }

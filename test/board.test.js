@@ -466,3 +466,71 @@ test('감독을 다시 정하면 이전 위임은 사라진다', () => {
   D.setup(st, { coaches: ['감독가', '감독나'] }, ctx);
   assert.deepEqual(st.delegates, [[], []]);
 });
+
+// ───────── 라인업 공유: 후보 이름 자리 잡기 ─────────
+const LU = require('../public/lineup');
+
+// 4-2-3-1 의 말 11개가 선 모양에서, 말마다 폭 40·높이 62 정도의 사각형이 차지한다고 보고 확인한다.
+function lineupBoxes(W, H, id = '4-2-3-1') {
+  return C.FORMATION_BY_ID[id].slots.map(sl => ({ x0: sl.x * W - 20, x1: sl.x * W + 20, y0: sl.y * H - 19, y1: sl.y * H + 43 }));
+}
+const rectOf = (p, w, h) => ({ x0: p.cx - w / 2, x1: p.cx + w / 2, y0: p.cy - h / 2, y1: p.cy + h / 2 });
+const overlap = (a, b) => !(a.x1 <= b.x0 || a.x0 >= b.x1 || a.y1 <= b.y0 || a.y0 >= b.y1);
+
+test('후보 이름 자리: 모두 놓이고, 말·다른 이름과 겹치지 않고, 피치 안에 든다', () => {
+  const W = 335, H = 517, fs = 11;
+  const boxes = lineupBoxes(W, H);
+  const items = [
+    ['가', ['ST']], ['나', ['WG']], ['다', ['WG']], ['라', ['SB']], ['마', ['CB']],
+    ['바', ['CB']], ['사', ['CB']], ['아', ['GK']], ['자', ['DM']], ['차', ['AM']], ['카', ['CM']],
+  ].map(([label, pos]) => ({ key: label, label, pos }));
+  const out = LU.placeBench({ W, H, boxes, items, measure: LU.approxWidth, fs });
+  assert.equal(Object.keys(out).length, items.length, '전원이 놓인다');
+  const rects = items.map(it => rectOf(out[it.key], LU.approxWidth(it.label, fs) + fs * .9, fs * 1.5));
+  rects.forEach((r, i) => {
+    assert.ok(r.x0 >= 0 && r.y0 >= 0 && r.x1 <= W && r.y1 <= H, `${items[i].label} 이(가) 피치 밖`);
+    boxes.forEach(b => assert.ok(!overlap(r, b), `${items[i].label} 이(가) 말과 겹침`));
+    rects.forEach((q, j) => { if (i < j) assert.ok(!overlap(r, q), `${items[i].label}·${items[j].label} 겹침`); });
+  });
+});
+
+test('후보 이름 자리: 희망 포지션 줄 가까이에 앉고, 같은 입력이면 같은 자리다', () => {
+  const W = 335, H = 517, fs = 11;
+  const items = [{ key: 'st', label: '공격수', pos: ['ST'] }, { key: 'gk', label: '골키퍼', pos: ['GK'] },
+    { key: 'cb', label: '수비수', pos: ['CB'] }];
+  const run = () => LU.placeBench({ W, H, boxes: lineupBoxes(W, H), items, measure: LU.approxWidth, fs });
+  const a = run();
+  assert.deepEqual(a, run());
+  assert.ok(a.st.cy < H * .3, '스트라이커는 위쪽');
+  assert.ok(a.gk.cy > H * .8, '골키퍼는 아래쪽');
+  assert.ok(a.cb.cy > a.st.cy, '수비수는 공격수보다 아래');
+});
+
+test('후보 이름 자리: 포지션이 없어도 놓고, 너무 많아 못 놓으면 빼되 겹치게는 놓지 않는다', () => {
+  const one = LU.placeBench({ W: 335, H: 517, boxes: [], items: [{ key: 'x', label: '무명', pos: [] }], measure: LU.approxWidth, fs: 11 });
+  assert.ok(one.x, '포지션을 안 적어도 어딘가에 놓는다');
+  const many = Array.from({ length: 400 }, (_, i) => ({ key: 'k' + i, label: '이름' + i, pos: ['CM'] }));
+  const out = LU.placeBench({ W: 335, H: 517, boxes: [], items: many, measure: LU.approxWidth, fs: 11 });
+  const keys = Object.keys(out);
+  assert.ok(keys.length > 0 && keys.length < many.length, '일부만 놓인다');
+  const rs = keys.map(k => rectOf(out[k], LU.approxWidth(many.find(m => m.key === k).label, 11) + 9.9, 16.5));
+  for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) assert.ok(!overlap(rs[i], rs[j]));
+});
+
+test('라인업 공유: 보드 응답에서 스타팅·후보·명단을 가른다', () => {
+  const d = {
+    names: ['한울팀', '타리팀'], colors: ['#e4572e', '#2e86de'],
+    coaches: [{ v: '감독가', label: '감독가' }, null],
+    teams: [['감독가', '가', '나'], []],
+    members: [{ v: '감독가', label: '감독가', pos: ['CM'] }, { v: '가', label: '가', pos: ['ST', 'WG'] }, { v: '나', label: '나', pos: null }],
+  };
+  const c = LU.fromBoard(d, 0, { 감독가: { x: .5, y: .5 }, 가: { x: .5, y: .2 } }, '4-2-3-1');
+  assert.deepEqual(c.tokens.map(t => t.name), ['감독가', '가']);
+  assert.deepEqual(c.bench.map(b => b.name), ['나']);
+  assert.deepEqual(c.roster.map(r => [r.name, r.start]), [['감독가', true], ['가', true], ['나', false]]);
+  assert.equal(c.teamName, '한울팀'); assert.equal(c.coach, '감독가'); assert.equal(c.formationId, '4-2-3-1');
+  assert.deepEqual(LU.splitLabel('최지훈 (동생)'), ['최지훈', '동생']);
+  assert.equal(LU.mainName('김가가'), '김가가');
+  const empty = LU.fromBoard(d, 1, {}, '');
+  assert.equal(empty.tokens.length + empty.bench.length, 0);
+});

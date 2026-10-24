@@ -419,10 +419,12 @@
         <i style="--fc:${color}">${first}</i><b>${esc(labOf(v))}</b></span>`;
     }).join('');
     const list = (BOARD.teams || [])[t] || [];
+    // 스타팅은 이름 왼쪽에 초록불 — 포메이션을 짠 팀에서만. 나머지는 빈 동그라미이고 말로 가르지 않는다.
     const listHtml = list.map(v => {
       const ps = posOfV(v).join(' · ');
-      return `<li${v === meV ? ' class="me"' : ''}><b>${esc(labOf(v))}</b>
-        <span>${ps || '자리 미입력'}</span></li>`;
+      const dot = names.length ? `<i class="sdot${names.includes(v) ? ' on' : ''}"></i>` : '';
+      return `<li${v === meV ? ' class="me"' : ''}><b>${dot}${esc(labOf(v))}</b>
+        <span>${ps || '희망 포지션 미입력'}</span></li>`;
     }).join('');
     return { color, f, hasField: names.length > 0, field, list, listHtml };
   }
@@ -458,10 +460,21 @@
     }
 
     $('tmListTitle').hidden = !tp.list.length;
+    $('tmListTitle').innerHTML = tp.hasField ? '팀원 <span class="sleg"><i class="sdot on"></i>스타팅</span>' : '팀원';
     $('tmList').innerHTML = tp.listHtml;
+    $('tmShare').hidden = !tp.list.length;
 
     show('team');
     window.scrollTo(0, 0);
+    // 스타팅이 아닌 팀원은 희망 포지션 자리에 작게 이름을 보여준다 (피치가 보인 뒤에 자리를 잡는다)
+    if (tp.hasField && window.LU) requestAnimationFrame(() => LU.decoratePitch($('tmField'), BOARD, t, f.pieces, 'member'));
+  }
+
+  // 라인업을 이미지로 저장·공유 — 한 팀의 스타팅·후보·포메이션을 한 장에 담는다.
+  function shareTeam(t) {
+    if (!window.LU || !BOARD || t < 0) return;
+    const f = (BOARD.formation || [])[t] || {};
+    LU.openShare(LU.fromBoard(BOARD, t, f.pieces || {}, f.id || ''));
   }
 
   // ---------- 관리자 ----------
@@ -557,15 +570,18 @@
       body = '<p class="note">아직 이 팀에 뽑힌 선수가 없습니다.</p>';
     } else {
       body = (tp.hasField
-        ? `<div class="fpitch">${tp.field}</div>
+        ? `<div class="fpitch" id="adField">${tp.field}</div>
            <p class="note">${tp.f.note ? '감독 메모 — ' + esc(tp.f.note) : '포메이션 ' + esc(tp.f.id || '')}</p>`
         : '<p class="note">감독이 아직 말을 배치하지 않았습니다. 팀원만 보여드립니다.</p>') +
-        `<h3 class="sub">팀원 ${tp.list.length}명</h3><ul class="tmlist">${tp.listHtml}</ul>`;
+        `<button type="button" class="ghost" data-share="1">라인업 이미지 저장 · 공유</button>
+         <h3 class="sub">팀원 ${tp.list.length}명${tp.hasField ? ' <span class="sleg"><i class="sdot on"></i>스타팅</span>' : ''}</h3>
+         <ul class="tmlist">${tp.listHtml}</ul>`;
     }
     $('adTeams').innerHTML =
       `<p class="note">현재 단계 — <b>${phase}</b> · 활동 ${(b.members || []).filter(m => m.active).length}명 중
         ${((b.teams || [])[0] || []).length + ((b.teams || [])[1] || []).length}명이 팀에 뽑힘</p>
        <div class="adseg" id="adSeg">${seg}</div>${body}`;
+    if (tp.hasField && window.LU) requestAnimationFrame(() => LU.decoratePitch($('adField'), BOARD, adTeam, tp.f.pieces, 'member'));
   }
 
   // 포지션 관리 — 선수 아이콘을 눌러 고친다. 보드의 「내 포지션」 화면과 같은 규칙이다:
@@ -863,9 +879,11 @@
     adTab = b.dataset.tab; renderAdmin();
   });
   $('adTeams').addEventListener('click', e => {
+    if (e.target.closest('[data-share]')) return shareTeam(adTeam);
     const b = e.target.closest('button[data-t]'); if (!b) return;
     adTeam = +b.dataset.t; renderAdmin();
   });
+  $('tmShare').addEventListener('click', () => shareTeam(myTeam()));
   $('adPos').addEventListener('click', e => {
     const s = e.target.closest('#adShow button[data-s]');
     if (s) { adShow = s.dataset.s; renderAdPos(); return; }
