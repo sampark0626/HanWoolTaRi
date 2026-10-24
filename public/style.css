@@ -610,3 +610,41 @@ body { background: radial-gradient(120% 70% at 50% 0%, #fafbfc 0%, var(--bg) 60%
 /* display 를 지정한 요소는 hidden 속성을 덮어쓴다 — 탭으로 숨기고 보이는 요소들에 hidden 이 먹게 한다 */
 #asBanner[hidden], #mTabs[hidden], #mMe[hidden], #mCoach[hidden], #coachNote[hidden],
 #adTeams[hidden], #adPos[hidden], #adMembers[hidden], #adBoard[hidden] { display: none !important; }
+
+/* ───────────────────────────────────────────────────────────────
+   팀 보기의 피치·말 — 보드와 같은 그림 (2026-10-24)
+   ─────────────────────────────────────────────────────────────── */
+.fpitch {
+  aspect-ratio: 68 / 105; border-radius: 18px;
+  background:
+    radial-gradient(130% 120% at 50% 50%, rgba(0,0,0,0) 52%, rgba(0,0,0,.38) 100%),
+    radial-gradient(120% 80% at 50% 36%, rgba(255,255,255,.17), rgba(255,255,255,0) 58%),
+    url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20680%201050%22%20preserveAspectRatio%3D%22none%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22rgba%28255%2C255%2C255%2C.72%29%22%20stroke-width%3D%223%22%3E%3Crect%20x%3D%2220%22%20y%3D%2220%22%20width%3D%22640%22%20height%3D%221010%22%2F%3E%3Cline%20x1%3D%2220%22%20y1%3D%22525%22%20x2%3D%22660%22%20y2%3D%22525%22%2F%3E%3Ccircle%20cx%3D%22340%22%20cy%3D%22525%22%20r%3D%2291.5%22%2F%3E%3Crect%20x%3D%22138.5%22%20y%3D%2220%22%20width%3D%22403%22%20height%3D%22165%22%2F%3E%3Crect%20x%3D%22248.5%22%20y%3D%2220%22%20width%3D%22183%22%20height%3D%2255%22%2F%3E%3Crect%20x%3D%22138.5%22%20y%3D%22865%22%20width%3D%22403%22%20height%3D%22165%22%2F%3E%3Crect%20x%3D%22248.5%22%20y%3D%22975%22%20width%3D%22183%22%20height%3D%2255%22%2F%3E%3Cpath%20d%3D%22M266.9%20185%20A91.5%2091.5%200%200%200%20413.1%20185%22%2F%3E%3Cpath%20d%3D%22M266.9%20865%20A91.5%2091.5%200%200%201%20413.1%20865%22%2F%3E%3Cpath%20d%3D%22M20%2040%20A20%2020%200%200%200%2040%2020%22%2F%3E%3Cpath%20d%3D%22M640%2020%20A20%2020%200%200%200%20660%2040%22%2F%3E%3Cpath%20d%3D%22M20%201010%20A20%2020%200%200%201%2040%201030%22%2F%3E%3Cpath%20d%3D%22M640%201030%20A20%2020%200%200%201%20660%201010%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22rgba%28255%2C255%2C255%2C.8%29%22%3E%3Ccircle%20cx%3D%22340%22%20cy%3D%22525%22%20r%3D%224%22%2F%3E%3Ccircle%20cx%3D%22340%22%20cy%3D%22130%22%20r%3D%224%22%2F%3E%3Ccircle%20cx%3D%22340%22%20cy%3D%22920%22%20r%3D%224%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center / 100% 100% no-repeat,
+    repeating-linear-gradient(0deg, #278a4c 0 9.0909%, #34a461 9.0909% 18.1818%);
+  box-shadow: 0 14px 30px -10px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.18),
+    inset 0 0 0 1px rgba(255,255,255,.2), inset 0 0 46px rgba(0,0,0,.28);
+}
+.fpitch::before, .fpitch::after { display: none; }
+.fp { width: 66px; }
+.fp::after {
+  content: ''; position: absolute; left: 50%; top: 0; width: 34px; height: 34px; z-index: -1;
+  transform: translate(-50%, 9px); border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.5), rgba(0,0,0,0) 70%); filter: blur(2px);
+}
+.fp i {
+  width: 34px; height: 34px;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255,255,255,.62) 0, rgba(255,255,255,0) 42%),
+    radial-gradient(circle at 72% 82%, rgba(0,0,0,.34) 0, rgba(0,0,0,0) 62%),
+    var(--fc, #e4572e);
+  border: 2.5px solid rgba(255,255,255,.96);
+  box-shadow: 0 7px 10px -3px rgba(0,0,0,.55), 0 2px 3px rgba(0,0,0,.35), inset 0 -3px 5px rgba(0,0,0,.24);
+  text-shadow: 0 1px 1px rgba(0,0,0,.4);
+}
+.fp b {
+  padding: 1px 7px 2px; border-radius: 999px; line-height: 1.25;
+  background: rgba(8,22,14,.58); border: 1px solid rgba(255,255,255,.2);
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+}
+.fp.me i { box-shadow: 0 0 0 3px #fff, 0 0 14px 4px rgba(255,255,255,.5), 0 7px 10px -3px rgba(0,0,0,.5); }
+.fp.me b { background: #fff; border-color: #fff; color: #111820; }

@@ -172,7 +172,8 @@
   function afterLogin() {
     sset('kitKey', ''); AKEY = '';          // 일반 로그인에서는 총무 열쇠를 남기지 않는다
     const co = coachTeamOf(voter) >= 0;
-    const live = !!(BOARD && (BOARD.phase === 'draft' || BOARD.phase === 'review'));
+    // 팀을 뽑는 중이거나 확정된 뒤(포메이션을 짜는 때)면 감독은 감독 탭부터 본다
+    const live = !!(BOARD && ['draft', 'review', 'done'].includes(BOARD.phase));
     homeTab = co && live ? 'coach' : 'me';
     // 감독이 팀을 뽑는 중이면 유니폼·포지션 입력보다 감독 화면이 먼저다
     if (me.pos.length || (co && live)) showHome(); else showKit();
@@ -397,7 +398,7 @@
       const q = pieces[v];
       const first = (posOfV(v)[0]) || '?';
       return `<span class="fp${v === meV ? ' me' : ''}" style="left:${q.x * 100}%;top:${q.y * 100}%">
-        <i style="background:${color}">${first}</i><b>${esc(labOf(v))}</b></span>`;
+        <i style="--fc:${color}">${first}</i><b>${esc(labOf(v))}</b></span>`;
     }).join('');
     const list = (BOARD.teams || [])[t] || [];
     const listHtml = list.map(v => {

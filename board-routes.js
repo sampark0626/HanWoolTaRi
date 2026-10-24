@@ -214,6 +214,14 @@ module.exports = function mountBoard(app, deps) {
     res.json({ ok: true, team: a.team, formation: st.formation[a.team] });
   }));
 
+  // 팀 이름 — 감독은 자기 팀, 총무는 team 으로 고른 팀. 본문의 name 은 감독 이름이라 teamName 을 쓴다.
+  app.post('/api/board/name', wrap(async (req, res) => {
+    const a = await coachAuth(req, res);
+    if (!a) return;
+    const st = await store.update(s => D.rename(s, a.team, (req.body || {}).teamName, CTX));
+    res.json({ ok: true, team: a.team, name: st.names[a.team] });
+  }));
+
   // ---------- 총무 ----------
   const admin = (path, fn) => app.post(path, wrap(async (req, res) => {
     if (!guard(req, res)) return;

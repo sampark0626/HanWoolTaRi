@@ -308,6 +308,20 @@ function setActive(st, member, value, ctx) {
   return st;
 }
 
+// 팀 이름 바꾸기 — 각 감독이 자기 팀 이름을 정한다 (총무 확인 2026-10-24).
+// 팀 구성이 시작된 뒤에도 된다(setup 은 시작 전에만 이름을 받는다). 상대 팀과 같으면 안 된다.
+function rename(st, team, name, ctx) {
+  if (team !== 0 && team !== 1) fail('팀을 알 수 없습니다.');
+  const s = typeof name === 'string' ? name.trim() : '';
+  if (!s || s.length > 12) fail('팀 이름은 1~12자로 적어주세요.');
+  if (s === st.names[1 - team]) fail('상대 팀과 이름이 같습니다.');
+  if (s === st.names[team]) return st;                       // 바뀐 것이 없다
+  const before = st.names[team];
+  st.names[team] = s;
+  note(st, 'rename', `팀 이름: ${before} → ${s}`, ctx);
+  return st;
+}
+
 // 포메이션·말 위치·작전 메모 저장. 팀 구성 중에도 미리 짜 둘 수 있다.
 function setFormation(st, team, body, ctx) {
   if (st.phase === 'setup') fail('팀이 정해진 뒤에 포메이션을 짤 수 있습니다.', 409);
@@ -326,5 +340,5 @@ function setFormation(st, team, body, ctx) {
 module.exports = {
   RuleError, UNKNOWN_BAND, initial, poolOf, balanceInfo, balanceTable, balanceOn, whyNot, canTake, bandOf,
   windowState, setWindow, setBalance, setup, start, pick, undo, confirm, finish, reopen,
-  release, reset, setActive, setFormation,
+  release, reset, setActive, setFormation, rename,
 };

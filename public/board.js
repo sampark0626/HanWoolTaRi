@@ -475,7 +475,8 @@
   }
 
   function renderForm() {
-    if (document.activeElement && document.activeElement.id === 'fmNote') return;   // 메모 쓰는 중에는 건드리지 않는다
+    // 메모·팀 이름을 쓰는 중에는 건드리지 않는다
+    if (document.activeElement && ['fmNote', 'fmName'].includes(document.activeElement.id)) return;
     const d = S.data, t = S.team, pane = $('pane-form');
     const seg = `<div class="b-seg">${[0, 1].map(i => `<button type="button" data-act="team" data-t="${i}" class="${t === i ? 'on' : ''}">
       ${esc(d.names[i])}${d.coaches[i] ? ' · ' + esc(d.coaches[i].label) : ''}</button>`).join('')}</div>`;
@@ -517,7 +518,13 @@
       : (f.note ? `<div class="b-notero">${esc(f.note)}</div>` : '');
     const saved = `<div class="b-save" id="saveState">${f.at ? '마지막 저장 ' + hm(f.at) : (edit ? '아직 저장된 라인업이 없습니다.' : '감독이 아직 라인업을 올리지 않았습니다.')}</div>`;
 
-    pane.innerHTML = seg + head + chips + pitch + sel + benchHtml + note + saved;
+    // 팀 이름은 감독이 직접 바꾼다 (총무는 어느 팀이든). 읽기만 하는 사람에게는 보이지 않는다.
+    const nameRow = edit
+      ? `<div class="b-rename"><label for="fmName">팀 이름</label>
+          <input id="fmName" type="text" maxlength="12" autocomplete="off" value="${esc(d.names[t])}">
+          <button type="button" class="b-mini pri" data-act="rename">바꾸기</button></div>` : '';
+
+    pane.innerHTML = seg + nameRow + head + chips + pitch + sel + benchHtml + note + saved;
   }
 
   // ----- 편집 -----
@@ -799,6 +806,7 @@
     else if (a === 'team') { S.team = +el.dataset.t; S.sel = null; renderForm(); }
     else if (a === 'fm') { if (canEdit(S.team)) { changeFormation(S.team, el.dataset.f); renderForm(); } }
     else if (a === 'auto') { if (canEdit(S.team)) { autoAll(S.team); renderForm(); toast('포지션을 보고 자동으로 앉혔습니다. 끌어서 고쳐 주세요.'); } }
+    else if (a === 'rename') renameTeam();
     else if (a === 'tobench') { toBench(S.team, S.sel); renderForm(); }
     else if (a === 'tofield') { placeBest(S.team, S.sel); renderForm(); }
     void d;
@@ -892,6 +900,25 @@
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     closePos(); closeCoach(); closeAdmin();
+  });
+
+  // 팀 이름 바꾸기 — 감독은 자기 팀, 총무는 보고 있는 팀. 상대 팀과 같으면 서버가 거부한다.
+  async function renameTeam() {
+    const t = S.team;
+    if (!canEdit(t) || !$('fmName')) return;
+    const v = $('fmName').value.trim();
+    if (!v) return toast('팀 이름을 적어주세요.');
+    if (v === S.data.names[t]) return toast('이름이 그대로입니다.');
+    try {
+      await coachCall('/api/board/name', { teamName: v }, t);
+      $('fmName').blur();
+      toast('팀 이름을 바꿨습니다.');
+      S.sig = null;
+      await load();
+    } catch (e) { toast(e.message); }
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target && e.target.id === 'fmName') { e.preventDefault(); renameTeam(); }
   });
 
   // 유니폼 투표를 막 끝낸 회원이면 본인 포지션 시트를 바로 연다 (같은 날 한 번에 끝내도록).

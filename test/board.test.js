@@ -386,3 +386,31 @@ test('가까운 포지션이 먼 포지션보다 어색함이 작다', () => {
   assert.equal(C.fitCost(['ST', 'CB'], 'CB'), 1);
   assert.ok(C.fitCost(['ST'], 'GK') >= 50);
 });
+
+test('감독이 자기 팀 이름을 바꾼다 — 시작 뒤에도, 상대와 같으면 거부', () => {
+  const ctx = mkctx();
+  const st = started(ctx, 0);
+  D.rename(st, 0, '  한울팀 ', ctx);
+  assert.equal(st.names[0], '한울팀');                       // 앞뒤 공백은 자른다
+  assert.equal(st.names[1], '백팀');                         // 상대 팀은 그대로
+  assert.match(st.log.at(-1).text, /청팀 → 한울팀/);
+  assert.throws(() => D.rename(st, 1, '한울팀', ctx), /같습니다/);
+  assert.throws(() => D.rename(st, 1, '', ctx), /1~12자/);
+  assert.throws(() => D.rename(st, 1, '열세글자를넘는아주긴팀이름입니다', ctx), /1~12자/);
+  assert.throws(() => D.rename(st, 1, 7, ctx), /1~12자/);
+  assert.throws(() => D.rename(st, 2, '타리팀', ctx), /알 수 없/);
+  const n = st.log.length;
+  D.rename(st, 0, '한울팀', ctx);                            // 같은 이름으로 다시 저장해도 기록이 늘지 않는다
+  assert.equal(st.log.length, n);
+});
+
+test('팀 이름은 확정된 뒤에도 바꿀 수 있다', () => {
+  const ctx = mkctx({ ageOn: false });
+  const st = started(ctx, 0);
+  for (const [t, n] of [[0, '가'], [1, '나'], [0, '다'], [1, '라'], [0, '마'], [1, '바']]) D.pick(st, t, n, ctx);
+  assert.equal(st.phase, 'review');
+  D.confirm(st, 0, true, ctx); D.confirm(st, 1, true, ctx);
+  assert.equal(st.phase, 'done');
+  D.rename(st, 1, '타리팀', ctx);
+  assert.equal(st.names[1], '타리팀');
+});
