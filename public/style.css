@@ -510,3 +510,51 @@ body { background: radial-gradient(120% 70% at 50% 0%, #fafbfc 0%, var(--bg) 60%
 }
 .adlinks { margin-top: 26px; display: flex; flex-direction: column; gap: 10px; }
 .adlinks .ghost, .adlinks a.linkbtn { margin-top: 0; }
+
+/* ───────────────────────────────────────────────────────────────
+   포지션 관리 — 선수 아이콘 (2026-10-24). 보드의 .b-mem/.ic 와 같은 규칙, 접두 ad.
+   ─────────────────────────────────────────────────────────────── */
+.adlegend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0 4px; font-size: 12.5px; color: var(--mute); font-weight: 600; }
+.adlegend .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.adlegend .dot.g-df { background: #8fc2ff; box-shadow: inset 0 0 0 2px #2f7fe8; }
+.adlegend .dot.none { background: #fffbe0; border: 2px dashed #e0b400; }
+.adlegend .dot.off { background: #2b2f36; }
+
+.adprog { margin-top: 12px; font-size: 14px; color: var(--ink2); }
+.adbar { height: 7px; margin-top: 6px; border-radius: 999px; background: #e1e5ea; overflow: hidden; }
+.adbar i { display: block; height: 100%; background: #1fa65a; border-radius: 999px; }
+.adshow { margin-top: 14px; }
+
+.adgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 6px; margin-top: 14px; }
+.admem { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 4px 0 2px; border-radius: 12px; }
+.admem:active { transform: scale(.96); }
+
+.adic {
+  width: 58px; height: 58px; border-radius: 50%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; line-height: 1.1;
+  background: #ffe566; color: #2d2300; box-shadow: inset 0 0 0 3px #e6b800, 0 2px 6px rgba(0,0,0,.14);
+}
+.adic b { font-size: 15px; font-weight: 900; letter-spacing: -.03em; }
+.adic small { font-size: 10px; font-weight: 700; opacity: .8; }
+
+.admem.act.adg-gk .adic { background: #ffb347; color: #3d2400; box-shadow: inset 0 0 0 3px #d9820a, 0 2px 6px rgba(0,0,0,.14); }
+.admem.act.adg-df .adic { background: #8fc2ff; color: #06264f; box-shadow: inset 0 0 0 3px #2f7fe8, 0 2px 6px rgba(0,0,0,.14); }
+.admem.act.adg-mf .adic { background: #86e0ae; color: #05361b; box-shadow: inset 0 0 0 3px #1fa65a, 0 2px 6px rgba(0,0,0,.14); }
+.admem.act.adg-fw .adic { background: #ff9d92; color: #4a0e07; box-shadow: inset 0 0 0 3px #e8503f, 0 2px 6px rgba(0,0,0,.14); }
+.admem.act.none .adic { background: #fffbe0; color: #4a3b00; box-shadow: none; border: 3px dashed #e0b400; }
+.admem.off .adic { background: #2b2f36; color: #8a919c; box-shadow: none; }
+
+.adbs { display: flex; gap: 3px; min-height: 17px; align-items: center; }
+.adpb {
+  min-width: 25px; padding: 2px 5px; border-radius: 6px; text-align: center;
+  font-style: normal; font-size: 10.5px; font-weight: 800; color: #fff;
+}
+.adpb.adg-gk { background: #e8a317; } .adpb.adg-df { background: #2f7fe8; }
+.adpb.adg-mf { background: #1fa65a; } .adpb.adg-fw { background: #e8503f; }
+.adpb.s { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
+.adpb.s.adg-gk { color: #e8a317; } .adpb.s.adg-df { color: #2f7fe8; }
+.adpb.s.adg-mf { color: #1fa65a; } .adpb.s.adg-fw { color: #e8503f; }
+.adnp { min-height: 17px; display: flex; align-items: center; font-size: 11px; font-weight: 700; color: #8a919c; }
+.adft { min-height: 12px; font-size: 10.5px; font-weight: 700; color: var(--mute); }
+
+@media (min-width: 560px) { .adgrid { grid-template-columns: repeat(6, 1fr); } }

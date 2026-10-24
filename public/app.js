@@ -18,7 +18,7 @@
   let me = { pos: [], foot: '' };         // 내 선수 정보
   let MYVOTE = null, BOARD = null;        // 대시보드가 보여줄 현재 상태
   let AKEY = '', ADMIN_EDIT = false;      // 관리자 키(이 탭에서만), 관리자가 남의 자리를 고치는 중인지
-  let adTab = 'teams', adTeam = 0;
+  let adTab = 'teams', adTeam = 0, adShow = 'all';
   const esc = s => String(s).replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sget = k => { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } };
@@ -218,7 +218,7 @@
   function showPlayer() {
     const m = CFG.roster.find(x => x.v === voter);
     $('plEyebrow').textContent = `${m ? m.label : voter} 님`;
-    $('plWho').textContent = ADMIN_EDIT ? '자리를 고쳐 주세요'
+    $('plWho').textContent = ADMIN_EDIT ? '포지션을 고쳐 주세요'
       : (me.pos.length ? '자리를 고치시겠어요?' : '어디서 뛰시나요?');
     $('plSkip').textContent = ADMIN_EDIT ? '취소' : '나중에 하기';
     $('plErr').hidden = true;
@@ -518,22 +518,49 @@
        <div class="adseg" id="adSeg">${seg}</div>${body}`;
   }
 
-  const FOOT_NAME = { R: '오른발', L: '왼발', B: '양발' };
+  // 포지션 관리 — 선수 아이콘을 눌러 고친다. 보드의 「내 포지션」 화면과 같은 규칙이다:
+  //   활동은 밝게(주 포지션 묶음 색), 아직 안 적은 활동 회원은 점선, 휴면은 어둡게.
+  const AGRP = { '골키퍼': 'gk', '수비': 'df', '미드필드': 'mf', '공격': 'fw' };
+  const gOf = id => AGRP[(POSBY[id] || {}).group] || '';
+  const FOOT_SHORT = { R: '오른발', L: '왼발', B: '양발' };
+  const splitLabel = l => { const m = /^(.*?)\s*\((.*)\)\s*$/.exec(l); return m ? [m[1], m[2]] : [l, '']; };
+
+  function adIcon(m) {
+    const g = m.pos ? gOf(m.pos[0]) : '';
+    const cls = (m.active ? 'act' : 'off') + (m.active && !m.pos ? ' none' : '') + (m.active && g ? ' adg-' + g : '');
+    const [main, sub] = splitLabel(m.label);
+    const badges = m.pos && m.pos.length
+      ? `<span class="adbs">${m.pos.map((p, i) => `<i class="adpb adg-${gOf(p)}${i ? ' s' : ''}">${p}</i>`).join('')}</span>`
+      : '<span class="adnp">미입력</span>';
+    return `<button type="button" class="admem ${cls}" data-v="${esc(m.v)}"
+        aria-label="${esc(m.label)}${m.active ? '' : ' (휴면)'} 포지션 고치기">
+      <span class="adic"><b>${esc(main)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span>
+      ${m.active ? badges : '<span class="adnp">휴면</span>'}
+      <span class="adft">${FOOT_SHORT[m.foot] || ''}</span></button>`;
+  }
+
   function renderAdPos() {
-    const ms = (BOARD.members || []).slice()
-      .sort((a, b) => (b.active - a.active) || a.label.localeCompare(b.label, 'ko'));
-    const act = ms.filter(m => m.active);
-    const done = act.filter(m => m.pos).length;
+    const ms = BOARD.members || [];
+    const act = ms.filter(m => m.active), off = ms.filter(m => !m.active);
+    const filled = act.filter(m => m.pos).length;
+    const list = ms.filter(m => adShow === 'all' || (adShow === 'act' ? m.active : !m.active))
+      .sort((a, b) => (b.active - a.active));
     $('adPos').innerHTML =
-      `<p class="note">활동 ${act.length}명 중 <b>${done}명</b>이 입력했습니다. 누르면 고칠 수 있습니다.</p>
-       <ul class="tmlist adpos">${ms.map(m => {
-        const ps = (m.pos || []).map(id => (POSBY[id] ? POSBY[id].name : id)).join(' · ');
-        const foot = FOOT_NAME[m.foot] || '';
-        return `<li${m.active ? '' : ' class="off"'}>
-          <div><b>${esc(m.label)}</b>${m.active ? '' : '<em>휴면</em>'}
-          <span>${ps ? esc(ps) : '미입력'}${foot ? ' · ' + foot : ''}</span></div>
-          <button type="button" class="adedit" data-v="${esc(m.v)}">${m.pos ? '고치기' : '입력'}</button></li>`;
-      }).join('')}</ul>`;
+      `<p class="note">선수 아이콘을 누르면 그 선수의 포지션과 주발을 고칠 수 있습니다.</p>
+       <div class="adlegend">
+         <span><i class="dot g-df"></i>활동 (색 = 주 포지션)</span>
+         <span><i class="dot none"></i>아직 안 적음</span>
+         <span><i class="dot off"></i>휴면</span>
+       </div>
+       <div class="adprog">활동 ${act.length}명 중 <b>${filled}명</b>이 입력했습니다
+         <div class="adbar"><i style="width:${act.length ? Math.round(filled / act.length * 100) : 0}%"></i></div></div>
+       <div class="adseg adshow" id="adShow">
+         <button type="button" data-s="all" class="${adShow === 'all' ? 'on' : ''}">전체 ${ms.length}</button>
+         <button type="button" data-s="act" class="${adShow === 'act' ? 'on' : ''}">활동 ${act.length}</button>
+         <button type="button" data-s="off" class="${adShow === 'off' ? 'on' : ''}">휴면 ${off.length}</button>
+       </div>
+       ${list.length ? `<div class="adgrid">${list.map(adIcon).join('')}</div>`
+        : '<p class="note">조건에 맞는 회원이 없습니다.</p>'}`;
   }
 
   function adminEdit(v) {
@@ -688,7 +715,9 @@
     adTeam = +b.dataset.t; renderAdmin();
   });
   $('adPos').addEventListener('click', e => {
-    const b = e.target.closest('.adedit'); if (!b) return;
+    const s = e.target.closest('#adShow button[data-s]');
+    if (s) { adShow = s.dataset.s; renderAdPos(); return; }
+    const b = e.target.closest('.admem'); if (!b) return;
     adminEdit(b.dataset.v);
   });
 
