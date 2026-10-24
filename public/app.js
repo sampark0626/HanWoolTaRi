@@ -17,6 +17,12 @@
   let voter = '', picks = [], zi = 0;
   let me = { pos: [], foot: '' };         // 내 선수 정보
   let MYVOTE = null, BOARD = null;        // 대시보드가 보여줄 현재 상태
+  let AKEY = '', ADMIN_EDIT = false;      // 관리자 키(이 탭에서만), 관리자가 남의 자리를 고치는 중인지
+  let adTab = 'teams', adTeam = 0;
+  const esc = s => String(s).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const sget = k => { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } };
+  const sset = (k, v) => { try { if (v) sessionStorage.setItem(k, v); else sessionStorage.removeItem(k); } catch (e) { /* 무시 */ } };
 
   const need = () => (CFG && CFG.picks) || 3;
 
@@ -212,7 +218,9 @@
   function showPlayer() {
     const m = CFG.roster.find(x => x.v === voter);
     $('plEyebrow').textContent = `${m ? m.label : voter} 님`;
-    $('plWho').textContent = me.pos.length ? '자리를 고치시겠어요?' : '어디서 뛰시나요?';
+    $('plWho').textContent = ADMIN_EDIT ? '자리를 고쳐 주세요'
+      : (me.pos.length ? '자리를 고치시겠어요?' : '어디서 뛰시나요?');
+    $('plSkip').textContent = ADMIN_EDIT ? '취소' : '나중에 하기';
     $('plErr').hidden = true;
     buildPitch();
     buildFeet();
@@ -245,7 +253,7 @@
     btn.textContent = '저장 중…';
     try {
       // 번호는 들어올 때 이미 확인했다. 여기서 또 되묻지 않는다.
-      const r = await fetch('/api/board/positions', {
+      const r = await fetch('/api/board/positions' + (ADMIN_EDIT ? '?key=' + encodeURIComponent(AKEY) : ''), {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           member: voter, positions: me.pos, foot: me.foot || null,
@@ -255,6 +263,7 @@
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || '저장하지 못했습니다.');
       BOARD = await fetchBoard();
+      if (ADMIN_EDIT) { backToAdmin(); return; }
       readMe();
       showHome();
     } catch (e) {
@@ -359,6 +368,31 @@
     return (m && m.pos) || [];
   };
 
+  // 한 팀의 말·팀원 목록을 그리는 조각. 회원의 「내 팀」과 관리자 화면이 같이 쓴다.
+  function teamParts(t, meV) {
+    const color = (BOARD.colors || [])[t] || '#2e86de';
+    const f = (BOARD.formation || [])[t] || {};
+    const pieces = f.pieces || {};
+    const names = Object.keys(pieces);
+    const field = names.map(v => {
+      const q = pieces[v];
+      const first = (posOfV(v)[0]) || '?';
+      return `<span class="fp${v === meV ? ' me' : ''}" style="left:${q.x * 100}%;top:${q.y * 100}%">
+        <i style="background:${color}">${first}</i><b>${esc(labOf(v))}</b></span>`;
+    }).join('');
+    const list = (BOARD.teams || [])[t] || [];
+    const listHtml = list.map(v => {
+      const ps = posOfV(v).join(' · ');
+      return `<li${v === meV ? ' class="me"' : ''}><b>${esc(labOf(v))}</b>
+        <span>${ps || '자리 미입력'}</span></li>`;
+    }).join('');
+    return { color, f, hasField: names.length > 0, field, list, listHtml };
+  }
+  const coachName = t => {
+    const co = (BOARD.coaches || [])[t];
+    return co && (typeof co === 'string' ? co : (co.label || co.v));
+  };
+
   function showTeam() {
     const t = myTeam();
     const nm = t >= 0 ? ((BOARD.names || [])[t] || `${t ? 'B' : 'A'}팀`) : '';
@@ -372,16 +406,10 @@
     $('tmName').style.color = color;
     $('tmLead').textContent = coach ? `${coach} 감독` : '감독 미정';
 
-    const f = (BOARD.formation || [])[t] || {};
-    const pieces = f.pieces || {};
-    const names = Object.keys(pieces);
-    if (names.length) {
-      $('tmField').innerHTML = names.map(v => {
-        const q = pieces[v];
-        const first = (posOfV(v)[0]) || '';
-        return `<span class="fp${v === voter ? ' me' : ''}" style="left:${q.x * 100}%;top:${q.y * 100}%">
-          <i style="background:${color}">${first}</i><b>${labOf(v)}</b></span>`;
-      }).join('');
+    const tp = teamParts(t, voter);
+    const f = tp.f;
+    if (tp.hasField) {
+      $('tmField').innerHTML = tp.field;
       $('tmField').hidden = false;
       $('tmNote').textContent = f.note ? `감독 메모 — ${f.note}` : `포메이션 ${f.id || ''}`;
       $('tmNote').hidden = false;
@@ -391,16 +419,130 @@
       $('tmNote').hidden = false;
     }
 
-    const list = (BOARD.teams || [])[t] || [];
-    $('tmListTitle').hidden = !list.length;
-    $('tmList').innerHTML = list.map(v => {
-      const ps = posOfV(v).join(' · ');
-      return `<li${v === voter ? ' class="me"' : ''}><b>${labOf(v)}</b>
-        <span>${ps || '자리 미입력'}</span></li>`;
-    }).join('');
+    $('tmListTitle').hidden = !tp.list.length;
+    $('tmList').innerHTML = tp.listHtml;
 
     show('team');
     window.scrollTo(0, 0);
+  }
+
+  // ---------- 관리자 ----------
+  // 두 팀의 선수 구성·포메이션을 보고, 전 회원의 자리·주발을 고친다.
+  // 팀을 뽑고 말을 옮기는 일은 보드(/board.html)의 총무 모드에서 한다 — 여기는 보고 고치는 곳이다.
+  // 키는 투표 집계 화면·보드와 같은 sessionStorage('kitKey')를 쓴다. 한 번 넣으면 셋 다 열린다.
+  async function adminCheck(k) {
+    const r = await fetch('/api/board/admin/check?key=' + encodeURIComponent(k));
+    if (!r.ok) throw new Error(r.status === 429
+      ? '여러 번 틀렸습니다. 15분 뒤에 다시 해주세요.' : '비밀번호가 맞지 않습니다.');
+  }
+
+  async function adminOpen() {
+    ADMIN_EDIT = false;
+    show('admin');
+    window.scrollTo(0, 0);
+    $('adErr').hidden = true;
+    const k = sget('kitKey');
+    if (k) {
+      try { await adminCheck(k); AKEY = k; return adminMain(); } catch (e) { sset('kitKey', ''); }
+    }
+    AKEY = '';
+    $('adLogin').hidden = false;
+    $('adMain').hidden = true;
+    $('adKey').value = '';
+  }
+
+  async function adminEnter() {
+    const k = $('adKey').value.trim();
+    if (!k) return;
+    const btn = $('adEnter'); btn.disabled = true;
+    try {
+      await adminCheck(k);
+      AKEY = k; sset('kitKey', k);
+      $('adErr').hidden = true;
+      await adminMain();
+    } catch (e) {
+      $('adErr').textContent = e.message;
+      $('adErr').hidden = false;
+    } finally { btn.disabled = false; }
+  }
+
+  async function adminMain() {
+    $('adLogin').hidden = true;
+    $('adMain').hidden = false;
+    BOARD = await fetchBoard();
+    renderAdmin();
+  }
+
+  function backToAdmin() {
+    ADMIN_EDIT = false;
+    adTab = 'pos';
+    show('admin');
+    renderAdmin();
+    window.scrollTo(0, 0);
+  }
+
+  function renderAdmin() {
+    document.querySelectorAll('#adTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === adTab));
+    $('adTeams').hidden = adTab !== 'teams';
+    $('adPos').hidden = adTab !== 'pos';
+    if (!BOARD) {
+      $('adTeams').innerHTML = $('adPos').innerHTML = '<p class="note">보드 정보를 불러오지 못했습니다. 잠시 뒤에 다시 열어 주세요.</p>';
+      return;
+    }
+    if (adTab === 'teams') renderAdTeams(); else renderAdPos();
+  }
+
+  function renderAdTeams() {
+    const b = BOARD;
+    const phase = ({ setup: '팀 구성 전', draft: '팀 구성 중', review: '확정 대기', done: '확정됨' })[b.phase] || b.phase;
+    const seg = [0, 1].map(i => {
+      const co = coachName(i);
+      return `<button type="button" data-t="${i}" class="${adTeam === i ? 'on' : ''}">
+        ${esc((b.names || [])[i] || (i ? 'B팀' : 'A팀'))}${co ? ' · ' + esc(co) : ''}
+        <small>${((b.teams || [])[i] || []).length}명</small></button>`;
+    }).join('');
+    const tp = teamParts(adTeam, null);
+    let body;
+    if (!tp.list.length) {
+      body = '<p class="note">아직 이 팀에 뽑힌 선수가 없습니다.</p>';
+    } else {
+      body = (tp.hasField
+        ? `<div class="fpitch">${tp.field}</div>
+           <p class="note">${tp.f.note ? '감독 메모 — ' + esc(tp.f.note) : '포메이션 ' + esc(tp.f.id || '')}</p>`
+        : '<p class="note">감독이 아직 말을 배치하지 않았습니다. 팀원만 보여드립니다.</p>') +
+        `<h3 class="sub">팀원 ${tp.list.length}명</h3><ul class="tmlist">${tp.listHtml}</ul>`;
+    }
+    $('adTeams').innerHTML =
+      `<p class="note">현재 단계 — <b>${phase}</b> · 활동 ${(b.members || []).filter(m => m.active).length}명 중
+        ${((b.teams || [])[0] || []).length + ((b.teams || [])[1] || []).length}명이 팀에 뽑힘</p>
+       <div class="adseg" id="adSeg">${seg}</div>${body}`;
+  }
+
+  const FOOT_NAME = { R: '오른발', L: '왼발', B: '양발' };
+  function renderAdPos() {
+    const ms = (BOARD.members || []).slice()
+      .sort((a, b) => (b.active - a.active) || a.label.localeCompare(b.label, 'ko'));
+    const act = ms.filter(m => m.active);
+    const done = act.filter(m => m.pos).length;
+    $('adPos').innerHTML =
+      `<p class="note">활동 ${act.length}명 중 <b>${done}명</b>이 입력했습니다. 누르면 고칠 수 있습니다.</p>
+       <ul class="tmlist adpos">${ms.map(m => {
+        const ps = (m.pos || []).map(id => (POSBY[id] ? POSBY[id].name : id)).join(' · ');
+        const foot = FOOT_NAME[m.foot] || '';
+        return `<li${m.active ? '' : ' class="off"'}>
+          <div><b>${esc(m.label)}</b>${m.active ? '' : '<em>휴면</em>'}
+          <span>${ps ? esc(ps) : '미입력'}${foot ? ' · ' + foot : ''}</span></div>
+          <button type="button" class="adedit" data-v="${esc(m.v)}">${m.pos ? '고치기' : '입력'}</button></li>`;
+      }).join('')}</ul>`;
+  }
+
+  function adminEdit(v) {
+    const m = (BOARD.members || []).find(x => x.v === v);
+    if (!m) return;
+    ADMIN_EDIT = true;
+    voter = v;
+    me = { pos: (m.pos || []).slice(), foot: m.foot || '' };
+    showPlayer();
   }
 
   // 투표 화면으로. 전에 고른 것이 있으면 그 위에서 고치게 한다.
@@ -530,6 +672,26 @@
   $('ktRevote').addEventListener('click', toChoose);
   $('tmBack').addEventListener('click', showHome);
 
+  $('adminLink').addEventListener('click', e => { e.preventDefault(); adminOpen(); });
+  $('adBack').addEventListener('click', () => { show('start'); window.scrollTo(0, 0); });
+  $('adEnter').addEventListener('click', adminEnter);
+  $('adKey').addEventListener('keydown', e => { if (e.key === 'Enter') adminEnter(); });
+  $('adOut').addEventListener('click', () => {
+    sset('kitKey', ''); AKEY = ''; show('start'); window.scrollTo(0, 0);
+  });
+  $('adTabs').addEventListener('click', e => {
+    const b = e.target.closest('button[data-tab]'); if (!b) return;
+    adTab = b.dataset.tab; renderAdmin();
+  });
+  $('adTeams').addEventListener('click', e => {
+    const b = e.target.closest('button[data-t]'); if (!b) return;
+    adTeam = +b.dataset.t; renderAdmin();
+  });
+  $('adPos').addEventListener('click', e => {
+    const b = e.target.closest('.adedit'); if (!b) return;
+    adminEdit(b.dataset.v);
+  });
+
   $('grid').addEventListener('click', e => {
     const mag = e.target.closest('.mag');
     if (mag) { e.stopPropagation(); return openZoom(+mag.dataset.zoom); }
@@ -574,7 +736,7 @@
     buildFeet();
   });
   $('plSave').addEventListener('click', savePlayer);
-  $('plSkip').addEventListener('click', showHome);
+  $('plSkip').addEventListener('click', () => { if (ADMIN_EDIT) backToAdmin(); else showHome(); });
   $('cards').addEventListener('click', e => {
     const b = e.target.closest('[data-go]'); if (!b) return;
     if (b.dataset.go === 'vote') toChoose();

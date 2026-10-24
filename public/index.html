@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=17">
+<link rel="stylesheet" href="/style.css?v=18">
 </head>
 <body>
 
@@ -32,7 +32,7 @@
 
     <p id="startErr" class="err" hidden></p>
     <p class="note" id="statusNote"></p>
-    <a class="adminlink" href="/results.html">관리자</a>
+    <a class="adminlink" id="adminLink" href="#admin">관리자</a>
   </div>
 </section>
 
@@ -135,6 +135,36 @@
   </div>
 </section>
 
+<!-- 6-1. 관리자 — 두 팀의 구성·포메이션 조회, 전 회원 자리 수정 -->
+<section id="admin" class="screen">
+  <div class="wrap">
+    <button id="adBack" class="backlink">‹ 처음으로</button>
+    <p class="eyebrow">관리자</p>
+    <h2>총무 화면</h2>
+
+    <div id="adLogin">
+      <p class="lead">관리자 비밀번호를 넣어주세요.</p>
+      <input id="adKey" class="adinput" type="password" autocomplete="off" placeholder="비밀번호">
+      <p id="adErr" class="err" hidden></p>
+      <div class="stick"><button id="adEnter" class="primary">들어가기</button></div>
+    </div>
+
+    <div id="adMain" hidden>
+      <div class="adtabs" id="adTabs">
+        <button type="button" data-tab="teams" class="on">팀·포메이션</button>
+        <button type="button" data-tab="pos">자리 관리</button>
+      </div>
+      <div id="adTeams"></div>
+      <div id="adPos" hidden></div>
+      <div class="adlinks">
+        <a class="ghost linkbtn" href="/board.html">보드에서 팀 조작하기</a>
+        <a class="ghost linkbtn" href="/results.html">유니폼 투표 결과</a>
+        <button id="adOut" class="plainlink">관리자 나가기</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- 7. 디자인 고르기 -->
 <section id="choose" class="screen">
   <header class="bar">
@@ -191,6 +221,6 @@
 </section>
 
 <script src="/core.js?v=3"></script>
-<script src="/app.js?v=19"></script>
+<script src="/app.js?v=20"></script>
 </body>
 </html>
