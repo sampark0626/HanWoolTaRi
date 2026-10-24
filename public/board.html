@@ -9,13 +9,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css?v=22">
-<link rel="stylesheet" href="/board.css?v=7">
+<link rel="stylesheet" href="/board.css?v=8">
 </head>
 <body class="board">
 
 <header class="b-bar">
   <div class="b-title"><small>한울타리 FC</small><b>자체전 포메이션 보드</b></div>
   <span id="phase" class="b-chip">불러오는 중</span>
+  <a id="myPage" class="b-my" href="/">⌂ 마이페이지</a>
 </header>
 
 <nav class="b-tabs" role="tablist" aria-label="보드 메뉴">
@@ -33,7 +34,7 @@
     <span id="modeTag" class="b-mode" hidden></span>
     <button type="button" id="adminBtn" class="b-link">총무</button>
     <span>·</span>
-    <a class="b-link" href="/">유니폼 투표로</a>
+    <a class="b-link" href="/">마이페이지</a>
   </div>
 </main>
 
@@ -57,6 +58,17 @@
       <button type="button" id="psClear" class="b-mini">포지션 지우기</button>
     </div>
     <button type="button" id="psClose" class="plainlink">닫기</button>
+  </div>
+</div>
+
+<!-- 자리·선수 시트: 눌러서 적합한 순서로 고른다 -->
+<div id="slotSheet" class="sheet" hidden>
+  <div class="sheetbox b-sheetbox b-tall" role="dialog" aria-modal="true" aria-labelledby="slTitle">
+    <h3 id="slTitle"></h3>
+    <p id="slHelp" class="b-slhelp"></p>
+    <div id="slList" class="b-slist"></div>
+    <button type="button" id="slOut" class="ghost" hidden></button>
+    <button type="button" id="slClose" class="plainlink">닫기</button>
   </div>
 </div>
 
@@ -86,6 +98,6 @@
 </div>
 
 <script src="/core.js?v=3"></script>
-<script src="/board.js?v=8"></script>
+<script src="/board.js?v=9"></script>
 </body>
 </html>

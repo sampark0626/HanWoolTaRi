@@ -83,6 +83,7 @@
           : '유니폼 투표는 마감되었습니다. 자리 입력과 팀 확인은 그대로 하실 수 있습니다.';
       }
     } catch (e) { /* 상태 조회 실패가 투표를 막지는 않는다 */ }
+    await resume();
   }
 
   // ---------- 이름 고르기 ----------
@@ -171,12 +172,29 @@
   // 둘 다 끝낸 사람은 대시보드로 바로 간다.
   function afterLogin() {
     sset('kitKey', ''); AKEY = '';          // 일반 로그인에서는 총무 열쇠를 남기지 않는다
+    // 이 탭에서는 로그인을 기억한다 — 보드에 갔다가 「마이페이지」로 돌아오거나 새로고침해도 다시 묻지 않는다.
+    // 탭을 닫으면 사라진다. 번호가 틀려 들어온 경우(그냥 들어가기)는 기억하지 않는다.
+    const savedCode = $('code').value.trim();
+    if (!CFG.needCode || /^\d{4}$/.test(savedCode)) sset('hanMe', JSON.stringify({ v: voter, c: savedCode }));
     const co = coachTeamOf(voter) >= 0;
     // 팀을 뽑는 중이거나 확정된 뒤(포메이션을 짜는 때)면 감독은 감독 탭부터 본다
     const live = !!(BOARD && ['draft', 'review', 'done'].includes(BOARD.phase));
     homeTab = co && live ? 'coach' : 'me';
     // 감독이 팀을 뽑는 중이면 유니폼·포지션 입력보다 감독 화면이 먼저다
     if (me.pos.length || (co && live)) showHome(); else showKit();
+  }
+
+  // 이 탭에 기억해 둔 로그인으로 다시 들어간다. 번호가 이제 안 맞으면 지우고 이름 화면에 머문다.
+  async function resume() {
+    let s = null;
+    try { s = JSON.parse(sget('hanMe') || 'null'); } catch (e) { s = null; }
+    if (!s || !s.v || !CFG.roster.some(m => m.v === s.v)) return;
+    voter = s.v; $('code').value = s.c || '';
+    try {
+      const [v, b] = await Promise.all([fetchMine(), fetchBoard()]);
+      if (v === 'badcode') { sset('hanMe', ''); voter = ''; $('code').value = ''; return; }
+      BOARD = b; MYVOTE = v; readMe(); afterLogin();
+    } catch (e) { /* 불러오지 못하면 이름 화면에 머문다 */ }
   }
 
   // ---------- 내 유니폼 확인 ----------
@@ -898,7 +916,8 @@
     if (b.dataset.go === 'player') { ADMIN_EDIT = VIEW_AS; showPlayer(); }
     if (b.dataset.go === 'team') showTeam();
   });
-  $('hmBack').addEventListener('click', () => { resetFrames(); show('start'); window.scrollTo(0, 0); });
+  // 「처음 화면으로」 — 이름 고르는 첫 화면으로 돌아가고, 이 탭의 로그인도 푼다
+  $('hmBack').addEventListener('click', () => { sset('hanMe', ''); resetFrames(); show('start'); window.scrollTo(0, 0); });
   $('mTabs').addEventListener('click', e => {
     const b = e.target.closest('button[data-m]'); if (b) setHomeTab(b.dataset.m);
   });

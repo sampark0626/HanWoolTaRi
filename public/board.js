@@ -490,14 +490,18 @@
       .sort((a, b) => (!!posOf(b).length - !!posOf(a).length));
     const color = d.colors[t];
 
-    const head = `<div class="b-fhead"><b>${esc(f.id)}</b>
-      <span>${edit ? '말을 끌어 원하는 곳에 놓으세요' : '감독이 짠 라인업입니다'}</span>
-      ${edit ? `<button type="button" class="b-mini" data-act="auto">자동 배치</button>` : ''}</div>`;
-    const chips = edit ? `<div class="b-fchips" style="--tc:${color}">${C.FORMATIONS.map(x =>
-      `<button type="button" data-act="fm" data-f="${x.id}" class="${x.id === f.id ? 'on' : ''}">${x.id}</button>`).join('')}</div>` : '';
+    const head = edit
+      ? `<div class="b-fhead"><label for="fmSel">포메이션</label>
+          <select id="fmSel" class="b-fsel" style="--tc:${color}">${C.FORMATIONS.map(x =>
+            `<option value="${x.id}"${x.id === f.id ? ' selected' : ''}>${x.id}</option>`).join('')}</select>
+          <button type="button" class="b-mini" data-act="auto">자동 배치</button>
+          <button type="button" class="b-mini" data-act="clear">초기화</button></div>
+        <p class="b-fhint">말이나 빈 자리, 벤치 선수를 <b>누르면</b> 어울리는 순서로 목록이 뜹니다. 끌어서 옮길 수도 있어요.</p>`
+      : `<div class="b-fhead"><b>${esc(f.id)}</b><span>감독이 짠 라인업입니다</span></div>`;
+    const chips = '';
 
     const def = C.FORMATION_BY_ID[f.id];
-    const slots = def.slots.map(s => `<i class="fslot" style="left:${s.x * 100}%;top:${s.y * 100}%">${s.role}</i>`).join('');
+    const slots = def.slots.map((s, i) => `<i class="fslot" data-act="slot" data-si="${i}" style="left:${s.x * 100}%;top:${s.y * 100}%">${s.role}</i>`).join('');
     const toks = Object.entries(f.pieces).map(([n, p]) => tokHtml(n, p, t)).join('');
     const pitch = `<div class="b-pitch${edit ? '' : ' ro'}" id="pitch" style="--tc:${color}">${LINES}${slots}${toks}</div>`;
 
@@ -588,10 +592,117 @@
   // 포메이션을 바꾸면 지금 필드에 있는 선수들을 새 모양에 다시 앉힌다. 벤치는 그대로.
   function changeFormation(t, id) {
     const f = S.fm[t], cur = onField(t);
-    const names = cur.length ? cur : S.data.teams[t];
     f.id = id;
-    f.pieces = C.autoLayout(id, names, posOf, footOf);
+    // 필드에 선수가 있으면 새 모양에 다시 앉힌다. 비어 있으면(처음이거나 초기화한 뒤) 이름만 바꾼다 —
+    // 채우는 일은 「자동 배치」나 자리를 눌러 직접 한다.
+    if (cur.length) f.pieces = C.autoLayout(id, cur, posOf, footOf);
     touch(t);
+  }
+
+  // 라인업을 모두 비운다 — 선수는 전부 벤치로. 포메이션과 메모는 그대로 둔다.
+  function clearLineup() {
+    const t = S.team;
+    if (!canEdit(t)) return;
+    if (!onField(t).length) return toast('비울 선수가 없습니다.');
+    if (!confirm('라인업을 모두 비울까요?\n선수는 전부 벤치로 갑니다. (포메이션과 메모는 그대로입니다)')) return;
+    S.fm[t].pieces = {}; S.sel = null; touch(t); renderForm();
+    toast('라인업을 비웠습니다.');
+  }
+
+  // ----- 자리·선수 시트: 눌러서 「적합한 순서」로 고른다 -----
+  // 모바일에서는 말을 끄는 것보다 누르는 편이 쉽다. 말이나 빈 자리를 누르면 그 자리에 어울리는 선수
+  // 순서로, 벤치 선수를 누르면 그 선수에게 어울리는 자리 순서로 목록이 뜬다. 고르면 바로 앉는다.
+  // 적합도는 core.js 의 fitCost(포지션 순위·가까운 자리·주발)를 그대로 쓴다. 끌기도 그대로 된다.
+  const SLOT_NEAR = .1;                          // 말이 자리에서 이만큼 안이면 그 자리에 선 것으로 본다
+  let sh = null;                                 // 열려 있는 시트 {t, mode: 'slot'|'player', ...}
+  const slotsOf = t => C.FORMATION_BY_ID[S.fm[t].id].slots;
+  const occupantAt = (t, s, except) => onField(t).find(n => n !== except &&
+    Math.hypot(S.fm[t].pieces[n].x - s.x, S.fm[t].pieces[n].y - s.y) < SLOT_NEAR);
+  function nearestSlot(t, p) {
+    let bi = -1, bd = SLOT_NEAR;
+    slotsOf(t).forEach((s, i) => { const dd = Math.hypot(s.x - p.x, s.y - p.y); if (dd < bd) { bd = dd; bi = i; } });
+    return bi;
+  }
+  const slotName = role => { const p = POS[C.SLOT_TO_POS[role]]; return p ? p.name : role; };
+  function fitTag(name, c) {
+    if (!posOf(name).length) return ['포지션 미입력', 'weak'];
+    if (c < .5) return ['주 포지션', 'good'];
+    if (c < 1.5) return ['부 포지션', 'good'];
+    if (c < 2.5) return ['3순위 포지션', 'good'];
+    if (c < 5) return ['비슷한 자리', 'ok'];
+    return ['낯선 자리', 'weak'];
+  }
+  function showSlotSheet() {
+    if (!sh.shown) { sh.shown = true; S.busy++; }
+    $('slotSheet').hidden = false; document.body.style.overflow = 'hidden';
+  }
+  function closeSlot() {
+    if ($('slotSheet').hidden) return;
+    $('slotSheet').hidden = true; document.body.style.overflow = '';
+    S.busy = Math.max(0, S.busy - 1); sh = null;
+  }
+
+  // 이 자리에 누구를 세울까 — 어울리는 선수 순서
+  function openSlotSheet(t, si) {
+    const f = S.fm[t], slot = slotsOf(t)[si], occ = occupantAt(t, slot);
+    const onF = n => (n in f.pieces ? 1 : 0);
+    const rows = S.data.teams[t].map(n => ({ n, c: C.fitCost(posOf(n), slot.role, footOf(n)) }))
+      .sort((a, b) => a.c - b.c || onF(a.n) - onF(b.n) || lab(a.n).localeCompare(lab(b.n), 'ko'));
+    const where = n => {
+      if (n === occ) return '지금 이 자리';
+      if (!(n in f.pieces)) return '벤치';
+      const k = nearestSlot(t, f.pieces[n]);
+      return k >= 0 ? `필드 · ${slotsOf(t)[k].role}` : '필드';
+    };
+    $('slTitle').textContent = `${slot.role} 자리 · ${slotName(slot.role)}`;
+    $('slHelp').textContent = '이 자리에 어울리는 순서입니다. 누르면 바로 앉습니다. 이미 필드에 있는 선수는 서로 자리를 바꿉니다.';
+    $('slList').innerHTML = rows.map(({ n, c }) => {
+      const [tx, cl] = fitTag(n, c);
+      return `<button type="button" class="b-srow${n === occ ? ' cur' : ''}" data-n="${esc(n)}">
+        <span class="nm"><b>${esc(lab(n))}</b>${badges(posOf(n))}</span>
+        <span class="st">${esc(where(n))}</span><span class="ft ${cl}">${tx}</span></button>`;
+    }).join('');
+    $('slOut').hidden = !occ;
+    $('slOut').textContent = occ ? `${lab(occ)} 님을 벤치로` : '';
+    sh = { t, mode: 'slot', si, occ };
+    showSlotSheet();
+  }
+
+  // 이 선수를 어디에 세울까 — 어울리는 자리 순서
+  function openPlayerSheet(t, name) {
+    const f = S.fm[t];
+    const mine = f.pieces[name] ? nearestSlot(t, f.pieces[name]) : -1;
+    const rows = slotsOf(t).map((s, i) => ({ i, s, c: C.fitCost(posOf(name), s.role, footOf(name)), occ: occupantAt(t, s, name) }))
+      .sort((a, b) => a.c - b.c || (!!a.occ - !!b.occ) || a.i - b.i);
+    $('slTitle').textContent = `${lab(name)} 님을 어디에 세울까요?`;
+    $('slHelp').textContent = '이 선수에게 어울리는 자리 순서입니다. 이미 누가 서 있는 자리는 서로 바꿉니다.';
+    $('slList').innerHTML = rows.map(({ i, s, c, occ }) => {
+      const [tx, cl] = fitTag(name, c);
+      return `<button type="button" class="b-srow${i === mine ? ' cur' : ''}" data-si="${i}">
+        <span class="nm"><b>${s.role}</b><span class="sub">${esc(slotName(s.role))}</span></span>
+        <span class="st">${i === mine ? '지금 이 자리' : occ ? esc(lab(occ)) + ' 있음' : '비어 있음'}</span>
+        <span class="ft ${cl}">${tx}</span></button>`;
+    }).join('');
+    $('slOut').hidden = !(name in f.pieces);
+    $('slOut').textContent = `${lab(name)} 님을 벤치로`;
+    sh = { t, mode: 'player', name };
+    showSlotSheet();
+  }
+
+  // 선수를 자리에 앉힌다. 그 자리에 다른 선수가 있으면: 앉히는 선수가 필드에 있었으면 서로 자리를 바꾸고,
+  // 벤치에 있었으면 있던 선수가 벤치로 간다. 필드가 가득이면 placeAt 이 가장 가까운 선수와 교체한다.
+  function assignSlot(t, name, slot) {
+    const f = S.fm[t];
+    const occ = occupantAt(t, slot, name), prev = f.pieces[name];
+    if (occ) {
+      if (prev) { f.pieces[occ] = { x: prev.x, y: prev.y }; toast(`${lab(name)} ↔ ${lab(occ)} 자리 교환`); }
+      else { delete f.pieces[occ]; toast(`${lab(occ)} → 벤치`); }
+      f.pieces[name] = { x: slot.x, y: slot.y }; touch(t);
+    } else if (!prev && onField(t).length >= C.FIELD_MAX) {
+      placeAt(t, name, slot.x, slot.y);
+    } else {
+      f.pieces[name] = { x: slot.x, y: slot.y }; touch(t);
+    }
   }
   function autoAll(t) {
     const f = S.fm[t];
@@ -647,7 +758,17 @@
     if (ghost) { ghost.remove(); ghost = null; }
     if (d.moved) S.busy = Math.max(0, S.busy - 1);
     if (cancel) { renderForm(); return; }
-    if (!d.moved) {                                   // 그냥 눌렀다 — 선택
+    if (!d.moved) {                                   // 그냥 눌렀다
+      // 고칠 수 있는 사람이 말이나 벤치 선수를 누르면 「어울리는 순서」 목록을 연다.
+      if (d.edit) {
+        const p = d.bench ? null : S.fm[d.t].pieces[d.name];
+        const k = p ? nearestSlot(d.t, p) : -1;
+        if (d.bench || k >= 0) {
+          S.sel = d.name; renderForm();
+          if (d.bench) openPlayerSheet(d.t, d.name); else openSlotSheet(d.t, k);
+          return;
+        }
+      }
       S.sel = S.sel === d.name ? null : d.name; renderForm(); return;
     }
     if (d.bench) {
@@ -807,6 +928,8 @@
     else if (a === 'fm') { if (canEdit(S.team)) { changeFormation(S.team, el.dataset.f); renderForm(); } }
     else if (a === 'auto') { if (canEdit(S.team)) { autoAll(S.team); renderForm(); toast('포지션을 보고 자동으로 앉혔습니다. 끌어서 고쳐 주세요.'); } }
     else if (a === 'rename') renameTeam();
+    else if (a === 'clear') clearLineup();
+    else if (a === 'slot') { if (canEdit(S.team)) openSlotSheet(S.team, +el.dataset.si); }
     else if (a === 'tobench') { toBench(S.team, S.sel); renderForm(); }
     else if (a === 'tofield') { placeBest(S.team, S.sel); renderForm(); }
     void d;
@@ -899,7 +1022,7 @@
 
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    closePos(); closeCoach(); closeAdmin();
+    closePos(); closeCoach(); closeAdmin(); closeSlot();
   });
 
   // 팀 이름 바꾸기 — 감독은 자기 팀, 총무는 보고 있는 팀. 상대 팀과 같으면 서버가 거부한다.
@@ -920,6 +1043,26 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Enter' && e.target && e.target.id === 'fmName') { e.preventDefault(); renameTeam(); }
   });
+
+  // 포메이션 드롭다운 · 시트 안의 눌림
+  $('pane-form').addEventListener('change', e => {
+    if (e.target.id !== 'fmSel' || !canEdit(S.team)) return;
+    changeFormation(S.team, e.target.value); renderForm();
+  });
+  $('slList').addEventListener('click', e => {
+    const b = e.target.closest('.b-srow'); if (!b || !sh || !canEdit(sh.t)) return;
+    const t = sh.t;
+    if (sh.mode === 'slot') { assignSlot(t, b.dataset.n, slotsOf(t)[sh.si]); S.sel = b.dataset.n; }
+    else { assignSlot(t, sh.name, slotsOf(t)[+b.dataset.si]); S.sel = sh.name; }
+    closeSlot(); renderForm();
+  });
+  $('slOut').addEventListener('click', () => {
+    if (!sh || !canEdit(sh.t)) return;
+    toBench(sh.t, sh.mode === 'slot' ? sh.occ : sh.name);
+    S.sel = null; closeSlot(); renderForm();
+  });
+  $('slClose').addEventListener('click', closeSlot);
+  $('slotSheet').addEventListener('click', e => { if (e.target.id === 'slotSheet') closeSlot(); });
 
   // 유니폼 투표를 막 끝낸 회원이면 본인 포지션 시트를 바로 연다 (같은 날 한 번에 끝내도록).
   function openFromVote() {

@@ -22,7 +22,7 @@ class RuleError extends Error {
 }
 const fail = (m, s) => { throw new RuleError(m, s); };
 
-const blankForm = () => ({ id: '4-4-2', pieces: {}, note: '', at: null });
+const blankForm = () => ({ id: '4-2-3-1', pieces: {}, note: '', at: null });   // 기본은 4-2-3-1 (총무 확인 2026-10-24)
 
 function initial() {
   return {

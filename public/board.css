@@ -390,3 +390,43 @@ body.embed .b-main { padding-top: 12px; }
 }
 .tok.sel .c { box-shadow: 0 0 0 4px #ffe66b, 0 0 16px 5px rgba(255,230,107,.55), 0 7px 10px -3px rgba(0,0,0,.5); }
 .tok.drag .c { transform: scale(1.14); box-shadow: 0 16px 18px -6px rgba(0,0,0,.6), 0 3px 5px rgba(0,0,0,.35), inset 0 -3px 5px rgba(0,0,0,.24); }
+
+/* ───────────────────────────────────────────────────────────────
+   포메이션 편집: 드롭다운 · 누르면 뜨는 적합도 목록 · 마이페이지 (2026-10-24)
+   ─────────────────────────────────────────────────────────────── */
+.b-my {
+  margin-left: auto; flex: none; padding: 7px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 800;
+  color: #fff; text-decoration: none; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25);
+}
+.b-bar .b-chip { margin-left: 0; }
+.b-fhead label { flex: none; font-size: 13px; font-weight: 800; color: var(--mute); }
+.b-fsel {
+  flex: 1; min-width: 0; padding: 10px 12px; font: inherit; font-size: 17px; font-weight: 900; letter-spacing: -.02em;
+  color: var(--ink); background: #fff; border: 2px solid var(--line); border-radius: 11px;
+  -webkit-appearance: none; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #6b7280 50%), linear-gradient(135deg, #6b7280 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%; background-size: 6px 6px; background-repeat: no-repeat;
+  padding-right: 32px;
+}
+.b-fsel:focus { outline: 0; border-color: var(--tc, var(--ink)); }
+.b-fhint { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--mute); }
+.b-fhint b { color: var(--ink); }
+
+.b-pitch:not(.ro) .fslot { pointer-events: auto; cursor: pointer; transition: background .12s ease; }
+.b-pitch:not(.ro) .fslot:active { background: rgba(255,255,255,.28); }
+
+.b-slhelp { font-size: 13px; line-height: 1.55; color: var(--mute); margin: 2px 0 6px; }
+.b-slist { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 12px; max-height: 50dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.b-srow {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; text-align: left;
+  border-radius: 12px; border: 2px solid var(--line); background: #fff; color: var(--ink);
+}
+.b-srow:active { transform: scale(.985); }
+.b-srow.cur { border-color: var(--ink); background: #f4f6f8; }
+.b-srow .nm { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.b-srow .nm b { font-size: 16px; font-weight: 900; letter-spacing: -.02em; }
+.b-srow .nm .sub { font-size: 12px; font-weight: 700; color: var(--mute); }
+.b-srow .st { flex: none; max-width: 38%; font-size: 12px; font-weight: 700; color: var(--mute); text-align: right; }
+.b-srow .ft { flex: none; padding: 4px 8px; border-radius: 8px; font-size: 11.5px; font-weight: 900; color: #fff; white-space: nowrap; }
+.b-srow .ft.good { background: #1fa65a; } .b-srow .ft.ok { background: #e8a317; } .b-srow .ft.weak { background: #8a919c; }
+#slOut { margin-top: 0; }
