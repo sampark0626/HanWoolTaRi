@@ -43,6 +43,18 @@
   };
   try { S.me = JSON.parse(ss.get('boardCoach') || 'null'); } catch (e) { S.me = null; }
 
+  // 회원 페이지의 「감독」 탭 안에 들어갈 때 쓰는 모드. 감독·총무 로그인은 부모 페이지가
+  // sessionStorage(boardCoach / kitKey)에 미리 넣어 두므로 여기서 다시 묻지 않는다.
+  //   ?embed=1  머리글·바닥글·감독 나가기를 감춘다    ?tab=pos|draft|form  처음 탭
+  //   ?team=0|1 총무가 한 팀을 대신 조작할 때 볼 팀
+  const QS = new URLSearchParams(location.search);
+  const EMBED = QS.get('embed') === '1';
+  if (EMBED) document.body.classList.add('embed');
+  if (['pos', 'draft', 'form'].includes(QS.get('tab'))) S.tab = QS.get('tab');
+  if (QS.get('team') === '0' || QS.get('team') === '1') {
+    S.actTeam = S.team = +QS.get('team'); S.teamInit = true;
+  }
+
   const isAdmin = () => !!(S.admin && S.adminOk);
   const coachTeam = () => (S.data && S.me ? S.data.coaches.findIndex(c => c && c.v === S.me.name) : -1);
   const actTeam = () => (isAdmin()
@@ -271,8 +283,9 @@
     const t = coachTeam();
     if (t >= 0) {
       return `<div class="b-strip coach" style="--tc:${d.colors[t]}"><span>✓ 감독 모드 · ${esc(d.names[t])} ${esc(d.coaches[t].label)}님</span>
-        <button type="button" class="b-mini" data-act="logout">나가기</button></div>`;
+        ${EMBED ? '' : '<button type="button" class="b-mini" data-act="logout">나가기</button>'}</div>`;
     }
+    if (EMBED) return '';          // 임베드에서는 감독 로그인을 다시 묻지 않는다
     return `<div class="b-strip"><span>감독이신가요? 감독 모드로 들어가세요.</span>
       <button type="button" class="b-mini pri" data-act="coachLogin">감독 모드</button></div>`;
   }

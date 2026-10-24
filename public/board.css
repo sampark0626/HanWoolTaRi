@@ -331,3 +331,7 @@
 .b-feet{display:flex;gap:8px}
 .b-fbtn{flex:1;padding:10px 8px;border:1px solid var(--b-line,#d7dbe0);border-radius:10px;background:#fff;font:inherit;font-weight:600;color:#39414a;cursor:pointer}
 .b-fbtn.on{background:#111820;border-color:#111820;color:#fff}
+
+/* 회원 페이지의 「감독」 탭 안에서 열릴 때 (?embed=1) — 바깥 페이지가 머리글을 맡는다 */
+body.embed .b-bar, body.embed .b-foot { display: none; }
+body.embed .b-main { padding-top: 12px; }

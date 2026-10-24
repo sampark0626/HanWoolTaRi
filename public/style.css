@@ -558,3 +558,55 @@ body { background: radial-gradient(120% 70% at 50% 0%, #fafbfc 0%, var(--bg) 60%
 .adft { min-height: 12px; font-size: 10.5px; font-weight: 700; color: var(--mute); }
 
 @media (min-width: 560px) { .adgrid { grid-template-columns: repeat(6, 1fr); } }
+
+/* ───────────────────────────────────────────────────────────────
+   회원 페이지 탭 · 감독 임베드 · 총무의 회원 페이지 보기 (2026-10-24)
+   ─────────────────────────────────────────────────────────────── */
+.mtop { position: sticky; top: 0; z-index: 30; }
+.mtabs {
+  display: flex; gap: 6px; padding: 8px 12px; background: rgba(241,243,245,.94);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--hair);
+}
+.mtabs button {
+  flex: 1; padding: 12px 6px; border-radius: 11px; font-size: 15px; font-weight: 800; color: var(--mute);
+}
+.mtabs button.on { background: #111820; color: #fff; }
+
+.asbanner {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: calc(8px + env(safe-area-inset-top)) 14px 8px; background: #8a5a00; color: #fff;
+  font-size: 13.5px; font-weight: 700;
+}
+.asbanner button { flex: none; padding: 7px 11px; border-radius: 9px; background: rgba(255,255,255,.2); color: #fff; font-size: 13px; font-weight: 800; }
+
+/* 감독 탭 — 화면 나머지를 보드가 다 쓴다 */
+.coachpane { flex: 1; min-height: 70dvh; position: relative; display: flex; flex-direction: column; }
+.coachpane iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg); }
+.coachnote { margin: 10px 16px 0; color: #b45309; font-weight: 700; }
+
+.adboard { margin: 12px -20px 0; height: 78dvh; }
+.adboard iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--bg); }
+
+.adtabs { display: grid; grid-template-columns: 1fr 1fr; }
+.adtabs button { font-size: 14px; }
+
+.adchips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.adchip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 10px 13px; border-radius: 12px;
+  background: var(--paper); border: 1px solid var(--hair); box-shadow: var(--soft);
+  font-size: 15px; font-weight: 700; color: var(--ink);
+}
+.adchip.co { border-color: #111820; }
+.adchip i {
+  padding: 2px 7px; border-radius: 999px; background: #111820; color: #fff;
+  font-style: normal; font-size: 10.5px; font-weight: 800;
+}
+.adchip.off { opacity: .55; }
+.adchip em {
+  padding: 2px 7px; border-radius: 999px; background: #e6e9ed; color: var(--mute);
+  font-style: normal; font-size: 10.5px; font-weight: 800;
+}
+
+/* display 를 지정한 요소는 hidden 속성을 덮어쓴다 — 탭으로 숨기고 보이는 요소들에 hidden 이 먹게 한다 */
+#asBanner[hidden], #mTabs[hidden], #mMe[hidden], #mCoach[hidden], #coachNote[hidden],
+#adTeams[hidden], #adPos[hidden], #adMembers[hidden], #adBoard[hidden] { display: none !important; }

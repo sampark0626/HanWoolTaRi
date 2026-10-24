@@ -307,7 +307,11 @@ app.post('/api/mine', async (req, res) => {
   if (ROSTER.length && !ROSTER.includes(voter))
     return res.status(400).json({ error: '명부에 없는 이름입니다. 총무에게 문의해 주세요.' });
 
-  if (NEED_CODE) {
+  // 총무는 번호 없이 볼 수 있다 — 관리자 화면에서 회원 페이지를 대신 열어 볼 때 쓴다.
+  // 열쇠가 틀리면 guard 가 403/429 로 막는다 (틀린 횟수도 센다).
+  if (req.query.key) {
+    if (!guard(req, res)) return;
+  } else if (NEED_CODE) {
     const bucket = 'mine|' + voter + '|' + (req.ip || '');
     if (tooMany(bucket))
       return res.status(429).json({ error: '여러 번 틀렸습니다. 10분 뒤에 다시 해주세요.' });

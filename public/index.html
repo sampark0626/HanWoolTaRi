@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=19">
+<link rel="stylesheet" href="/style.css?v=21">
 </head>
 <body>
 
@@ -110,12 +110,27 @@
 
 <!-- 5. 대시보드 -->
 <section id="home" class="screen">
-  <div class="wrap">
+  <div class="mtop">
+    <div id="asBanner" class="asbanner" hidden>
+      <span id="asText"></span>
+      <button id="asExit" type="button">관리자 화면으로</button>
+    </div>
+    <!-- 자체전 감독이면 「감독」 탭이 생긴다 -->
+    <nav id="mTabs" class="mtabs" hidden aria-label="내 페이지 메뉴">
+      <button type="button" data-m="me" class="on">내 페이지</button>
+      <button type="button" data-m="coach">감독</button>
+    </nav>
+  </div>
+  <div class="wrap" id="mMe">
     <p class="eyebrow">한울타리 FC</p>
     <h2 id="hmWho"></h2>
     <p class="lead" id="hmLead">지금 하실 수 있는 일입니다.</p>
     <div id="cards" class="cards"></div>
     <button id="hmBack" class="plainlink">다른 이름으로 보기</button>
+  </div>
+  <div id="mCoach" class="coachpane" hidden>
+    <p id="coachNote" class="note coachnote" hidden>번호가 확인되지 않아 보기만 할 수 있습니다. 이름을 다시 골라 번호를 눌러 주세요.</p>
+    <iframe id="coachFrame" title="감독 화면"></iframe>
   </div>
 </section>
 
@@ -153,9 +168,13 @@
       <div class="adtabs" id="adTabs">
         <button type="button" data-tab="teams" class="on">팀·포메이션</button>
         <button type="button" data-tab="pos">포지션 관리</button>
+        <button type="button" data-tab="members">회원 페이지</button>
+        <button type="button" data-tab="board">감독 보드</button>
       </div>
       <div id="adTeams"></div>
       <div id="adPos" hidden></div>
+      <div id="adMembers" hidden></div>
+      <div id="adBoard" class="adboard" hidden><iframe id="adFrame" title="감독 보드"></iframe></div>
       <div class="adlinks">
         <a class="ghost linkbtn" href="/board.html">보드에서 팀 조작하기</a>
         <a class="ghost linkbtn" href="/results.html">유니폼 투표 결과</a>
@@ -221,6 +240,6 @@
 </section>
 
 <script src="/core.js?v=3"></script>
-<script src="/app.js?v=21"></script>
+<script src="/app.js?v=23"></script>
 </body>
 </html>

@@ -19,6 +19,8 @@
   let MYVOTE = null, BOARD = null;        // 대시보드가 보여줄 현재 상태
   let AKEY = '', ADMIN_EDIT = false;      // 관리자 키(이 탭에서만), 관리자가 남의 자리를 고치는 중인지
   let adTab = 'teams', adTeam = 0, adShow = 'all';
+  let VIEW_AS = false;                    // 총무가 회원 페이지를 대신 열어 보는 중인지
+  let homeTab = 'me';                     // 회원 페이지의 탭: me | coach
   const esc = s => String(s).replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sget = k => { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } };
@@ -168,7 +170,12 @@
   // 들어오면 **유니폼부터 확인**시키고, 그다음 자리를 받는다 (총무 확인 2026-10-17).
   // 둘 다 끝낸 사람은 대시보드로 바로 간다.
   function afterLogin() {
-    if (me.pos.length) showHome(); else showKit();
+    sset('kitKey', ''); AKEY = '';          // 일반 로그인에서는 총무 열쇠를 남기지 않는다
+    const co = coachTeamOf(voter) >= 0;
+    const live = !!(BOARD && (BOARD.phase === 'draft' || BOARD.phase === 'review'));
+    homeTab = co && live ? 'coach' : 'me';
+    // 감독이 팀을 뽑는 중이면 유니폼·포지션 입력보다 감독 화면이 먼저다
+    if (me.pos.length || (co && live)) showHome(); else showKit();
   }
 
   // ---------- 내 유니폼 확인 ----------
@@ -199,7 +206,7 @@
   }
 
   async function fetchMine() {
-    const r = await fetch('/api/mine', {
+    const r = await fetch('/api/mine' + (VIEW_AS ? '?key=' + encodeURIComponent(AKEY) : ''), {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ voter, code: $('code').value.trim() }),
     });
@@ -295,9 +302,12 @@
         `<div class="mylist">${MYVOTE.picks.map((id, i) => `
           <div class="mine"><b>${i + 1}순위</b><img src="/kits/${id}.jpg?v=${V}" alt="">
           <span>${BY[id] ? BY[id].name : id}</span></div>`).join('')}</div>`,
-        MYVOTE.canEdit
-          ? '<button type="button" class="ghost" data-go="vote">다시 고르기</button>'
-          : '<p class="note">투표가 마감되어 수정은 안 됩니다.</p>'));
+        VIEW_AS ? ''
+          : MYVOTE.canEdit
+            ? '<button type="button" class="ghost" data-go="vote">다시 고르기</button>'
+            : '<p class="note">투표가 마감되어 수정은 안 됩니다.</p>'));
+    } else if (VIEW_AS) {
+      out.push(card('kit', '유니폼 투표', '아직 안 했습니다', '', ''));
     } else if (CFG.open !== false) {
       out.push(card('kit', '유니폼 투표', '아직 안 하셨습니다',
         '<p class="lead">2027 시즌 유니폼을 회원 투표로 정합니다. 17종 중 3개, 2~3분이면 됩니다.</p>',
@@ -312,9 +322,9 @@
         `<p class="pills">${me.pos.map((id, i) =>
           `<span class="pill"><i>${i + 1}</i>${POSBY[id] ? POSBY[id].name : id}</span>`).join('')}</p>
          <p class="note">주발 · ${foot || '안 고르셨습니다'}</p>`,
-        closed ? '<p class="note">입력 기간이 끝났습니다.</p>'
+        closed && !VIEW_AS ? '<p class="note">입력 기간이 끝났습니다.</p>'
           : '<button type="button" class="ghost" data-go="player">고치기</button>'));
-    } else if (!closed) {
+    } else if (!closed || VIEW_AS) {
       out.push(card('pos', '내 선수 정보', '아직 안 적으셨습니다',
         '<p class="lead">자체전에서 팀을 짤 때 씁니다. 자리 1~3개와 주발, 1분이면 됩니다.</p>',
         '<button type="button" class="primary" data-go="player">적으러 가기</button>', true));
@@ -352,7 +362,16 @@
 
     $('cards').innerHTML = out.length ? out.join('')
       : '<p class="lead">지금은 하실 일이 없습니다. 고맙습니다.</p>';
+
+    // 총무가 대신 열어 본 페이지면 맨 위에 알린다
+    $('asBanner').hidden = !VIEW_AS;
+    $('asText').textContent = `관리자 보기 · ${m ? m.label : voter} 님의 페이지`;
+    $('hmLead').textContent = VIEW_AS ? '이 회원이 보는 화면 그대로입니다.' : '지금 하실 수 있는 일입니다.';
+    // 자체전 감독이면 「감독」 탭이 생긴다
+    const co = coachTeamOf(voter) >= 0;
+    $('mTabs').hidden = !co;
     show('home');
+    setHomeTab(co ? homeTab : 'me', true);
     window.scrollTo(0, 0);
   }
 
@@ -474,6 +493,12 @@
   }
 
   function backToAdmin() {
+    if (VIEW_AS) {                         // 회원 페이지를 대신 보다가 고친 것이면 그 페이지로 돌아간다
+      ADMIN_EDIT = false;
+      readMe();
+      showHome();
+      return;
+    }
     ADMIN_EDIT = false;
     adTab = 'pos';
     show('admin');
@@ -485,11 +510,17 @@
     document.querySelectorAll('#adTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === adTab));
     $('adTeams').hidden = adTab !== 'teams';
     $('adPos').hidden = adTab !== 'pos';
+    $('adMembers').hidden = adTab !== 'members';
+    $('adBoard').hidden = adTab !== 'board';
+    if (adTab === 'board') { ensureAdFrame(); return; }
     if (!BOARD) {
-      $('adTeams').innerHTML = $('adPos').innerHTML = '<p class="note">보드 정보를 불러오지 못했습니다. 잠시 뒤에 다시 열어 주세요.</p>';
+      $('adTeams').innerHTML = $('adPos').innerHTML = $('adMembers').innerHTML =
+        '<p class="note">보드 정보를 불러오지 못했습니다. 잠시 뒤에 다시 열어 주세요.</p>';
       return;
     }
-    if (adTab === 'teams') renderAdTeams(); else renderAdPos();
+    if (adTab === 'teams') renderAdTeams();
+    else if (adTab === 'pos') renderAdPos();
+    else renderAdMembers();
   }
 
   function renderAdTeams() {
@@ -570,6 +601,100 @@
     voter = v;
     me = { pos: (m.pos || []).slice(), foot: m.foot || '' };
     showPlayer();
+  }
+
+  // ---------- 회원 페이지의 탭 · 감독 ----------
+  // 각 회원은 자기 페이지(대시보드)를 갖고, 자체전 감독이면 「감독」 탭이 하나 더 생긴다.
+  // 감독 탭은 보드(/board.html)를 임베드한다 — 선수 뽑기·최종 확정·포메이션 화면을 다시 만들지
+  // 않고 같은 규칙·같은 화면을 쓴다. 감독 인증은 로그인에서 끝났으니 sessionStorage 로 넘겨
+  // 한 번 더 묻지 않는다 (board.js 가 boardCoach 를 읽는다).
+  const coachId = c => (c ? (typeof c === 'string' ? c : c.v) : '');
+  const coachTeamOf = v => (BOARD && BOARD.coaches ? BOARD.coaches.findIndex(c => coachId(c) === v) : -1);
+
+  function setHomeTab(t, quiet) {
+    if (t === 'coach' && coachTeamOf(voter) < 0) t = 'me';
+    homeTab = t;
+    document.querySelectorAll('#mTabs button').forEach(b => b.classList.toggle('on', b.dataset.m === t));
+    $('mMe').hidden = t !== 'me';
+    $('mCoach').hidden = t !== 'coach';
+    if (t === 'coach') ensureCoachFrame();
+    if (!quiet) window.scrollTo(0, 0);
+  }
+
+  // 같은 회원·같은 보기면 다시 불러오지 않는다. 사람이 바뀌면 새로 연다.
+  function ensureCoachFrame() {
+    const fr = $('coachFrame');
+    const key = (VIEW_AS ? 'a:' : 'c:') + voter;
+    if (fr.dataset.k === key) return;
+    const q = new URLSearchParams({ embed: '1', tab: BOARD && BOARD.phase === 'done' ? 'form' : 'draft' });
+    let verified = true;
+    if (VIEW_AS) {
+      // 총무 열쇠로 연다. 감독 로그인은 지우고, 그 감독의 팀을 먼저 보여준다.
+      sset('kitKey', AKEY);
+      sset('boardCoach', '');
+      const t = coachTeamOf(voter);
+      if (t >= 0) q.set('team', t);
+    } else {
+      const code = $('code').value.trim();
+      verified = /^\d{4}$/.test(code);
+      sset('boardCoach', verified ? JSON.stringify({ name: voter, code }) : '');
+    }
+    $('coachNote').hidden = verified;
+    fr.dataset.k = key;
+    fr.src = '/board.html?' + q.toString();
+  }
+
+  // 로그아웃·사람 바꾸기: 이 탭에 남은 감독·총무 인증과 임베드를 비운다.
+  function resetFrames() {
+    VIEW_AS = false; ADMIN_EDIT = false; homeTab = 'me';
+    sset('boardCoach', '');
+    for (const id of ['coachFrame', 'adFrame']) {
+      const f = $(id);
+      f.dataset.k = '';
+      if (f.getAttribute('src')) f.src = 'about:blank';
+    }
+  }
+
+  // ---------- 총무: 모든 회원 페이지 · 감독 보드 ----------
+  function renderAdMembers() {
+    const ms = (BOARD.members || []).slice().sort((a, b) =>
+      ((coachTeamOf(b.v) >= 0) - (coachTeamOf(a.v) >= 0)) || (b.active - a.active)
+      || a.label.localeCompare(b.label, 'ko'));
+    $('adMembers').innerHTML =
+      `<p class="note">회원을 누르면 그 회원이 보는 페이지를 그대로 볼 수 있습니다. 감독은 감독 탭도 열립니다.</p>
+       <div class="adchips">${ms.map(m => {
+        const t = coachTeamOf(m.v);
+        return `<button type="button" class="adchip${m.active ? '' : ' off'}${t >= 0 ? ' co' : ''}" data-v="${esc(m.v)}">
+          ${esc(m.label)}${t >= 0 ? '<i>감독</i>' : ''}${m.active ? '' : '<em>휴면</em>'}</button>`;
+      }).join('')}</div>`;
+  }
+
+  async function adminViewMember(v) {
+    VIEW_AS = true; ADMIN_EDIT = false; voter = v; homeTab = 'me';
+    sset('kitKey', AKEY);
+    const [mv, b] = await Promise.all([fetchMine(), fetchBoard()]);
+    if (b) BOARD = b;
+    MYVOTE = mv && mv !== 'badcode' ? mv : null;
+    readMe();
+    showHome();
+  }
+
+  async function adminReturn() {
+    resetFrames();
+    adTab = 'members';
+    show('admin');
+    await adminMain();
+    window.scrollTo(0, 0);
+  }
+
+  // 총무의 「감독 보드」 — 두 팀을 모두 보고 대신 조작한다. 감독 로그인은 지운다.
+  function ensureAdFrame() {
+    const fr = $('adFrame');
+    if (fr.dataset.k === '1') return;
+    sset('kitKey', AKEY);
+    sset('boardCoach', '');
+    fr.dataset.k = '1';
+    fr.src = '/board.html?embed=1&tab=draft';
   }
 
   // 투표 화면으로. 전에 고른 것이 있으면 그 위에서 고치게 한다.
@@ -704,7 +829,7 @@
   $('adEnter').addEventListener('click', adminEnter);
   $('adKey').addEventListener('keydown', e => { if (e.key === 'Enter') adminEnter(); });
   $('adOut').addEventListener('click', () => {
-    sset('kitKey', ''); AKEY = ''; show('start'); window.scrollTo(0, 0);
+    sset('kitKey', ''); AKEY = ''; resetFrames(); show('start'); window.scrollTo(0, 0);
   });
   $('adTabs').addEventListener('click', e => {
     const b = e.target.closest('button[data-tab]'); if (!b) return;
@@ -769,10 +894,17 @@
   $('cards').addEventListener('click', e => {
     const b = e.target.closest('[data-go]'); if (!b) return;
     if (b.dataset.go === 'vote') toChoose();
-    if (b.dataset.go === 'player') showPlayer();
+    if (b.dataset.go === 'player') { ADMIN_EDIT = VIEW_AS; showPlayer(); }
     if (b.dataset.go === 'team') showTeam();
   });
-  $('hmBack').addEventListener('click', () => { show('start'); window.scrollTo(0, 0); });
+  $('hmBack').addEventListener('click', () => { resetFrames(); show('start'); window.scrollTo(0, 0); });
+  $('mTabs').addEventListener('click', e => {
+    const b = e.target.closest('button[data-m]'); if (b) setHomeTab(b.dataset.m);
+  });
+  $('asExit').addEventListener('click', adminReturn);
+  $('adMembers').addEventListener('click', e => {
+    const b = e.target.closest('.adchip'); if (b) adminViewMember(b.dataset.v);
+  });
   // 폰 키보드로도 칠 수 있게 — 키패드와 같은 값을 넣는다
   document.addEventListener('keydown', e => {
     if (!$('pin').classList.contains('on')) return;
