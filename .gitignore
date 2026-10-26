@@ -4,5 +4,6 @@ DORMANT.txt
 .env
 AUTH.txt
 AGE.txt
+NUMBERS.txt
 ADMIN_KEY.txt
 *.bak*

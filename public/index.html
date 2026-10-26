@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=23">
+<link rel="stylesheet" href="/style.css?v=27">
 </head>
 <body>
 
@@ -115,10 +115,12 @@
       <span id="asText"></span>
       <button id="asExit" type="button">관리자 화면으로</button>
     </div>
-    <!-- 자체전 감독이면 「감독」 탭이 생긴다 -->
-    <nav id="mTabs" class="mtabs" hidden aria-label="내 페이지 메뉴">
+    <!-- 유니폼 투표는 끝났다 — 탭은 남기되 눌리지 않는다. 자체전 감독이면 「감독」 탭이 하나 더 생긴다 -->
+    <nav id="mTabs" class="mtabs" aria-label="내 페이지 메뉴">
       <button type="button" data-m="me" class="on">내 페이지</button>
-      <button type="button" data-m="coach">감독</button>
+      <button type="button" data-m="vote" id="mVoteTab" disabled aria-disabled="true">유니폼 투표<small>종료</small></button>
+      <button type="button" data-m="num">번호·사이즈<small>NEW</small></button>
+      <button type="button" data-m="coach" id="mCoachTab" hidden>감독</button>
     </nav>
   </div>
   <div class="wrap" id="mMe">
@@ -128,6 +130,8 @@
     <div id="cards" class="cards"></div>
     <button id="hmBack" class="plainlink">⌂ 처음 화면으로</button>
   </div>
+  <!-- 유니폼 번호·사이즈 — public/uniform.js 가 그린다 -->
+  <div class="wrap un" id="mNum" hidden></div>
   <div id="mCoach" class="coachpane" hidden>
     <p id="coachNote" class="note coachnote" hidden>번호가 확인되지 않아 보기만 할 수 있습니다. 이름을 다시 골라 번호를 눌러 주세요.</p>
     <iframe id="coachFrame" title="감독 화면"></iframe>
@@ -171,10 +175,12 @@
         <button type="button" data-tab="pos">포지션 관리</button>
         <button type="button" data-tab="members">회원 페이지</button>
         <button type="button" data-tab="board">감독 보드</button>
+        <button type="button" data-tab="num">번호·사이즈</button>
       </div>
       <div id="adTeams"></div>
       <div id="adPos" hidden></div>
       <div id="adMembers" hidden></div>
+      <div id="adNum" hidden></div>
       <div id="adBoard" class="adboard" hidden><iframe id="adFrame" title="감독 보드"></iframe></div>
       <div class="adlinks">
         <a class="ghost linkbtn" href="/board.html">보드에서 팀 조작하기</a>
@@ -213,6 +219,13 @@
   </div>
 </div>
 
+<!-- 확정 유니폼 크게 보기 (번호·사이즈 탭) -->
+<div id="wzoom" class="zoom" hidden>
+  <button class="zclose" id="wzclose" aria-label="닫기">✕</button>
+  <img id="wzimg" alt="">
+  <div class="zbar"><strong id="wzname"></strong></div>
+</div>
+
 <!-- 7-2. 크게 보기 -->
 <div id="zoom" class="zoom" hidden>
   <button class="zclose" id="zclose" aria-label="닫기">✕</button>
@@ -242,6 +255,7 @@
 
 <script src="/core.js?v=3"></script>
 <script src="/lineup.js?v=2"></script>
-<script src="/app.js?v=29"></script>
+<script src="/uniform.js?v=5"></script>
+<script src="/app.js?v=30"></script>
 </body>
 </html>

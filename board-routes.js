@@ -286,6 +286,7 @@ module.exports = function mountBoard(app, deps) {
     const value = b.active === null || typeof b.active === 'boolean' ? b.active : undefined;
     if (value === undefined) return bad(res, '활동/휴면 값이 올바르지 않습니다.');
     await update(s => D.setActive(s, String(b.member || ''), value, CTX));
+    if (deps.onActiveChange) deps.onActiveChange();      // 유니폼 번호의 잠김/휴면 표시가 따라 바뀐다
     res.json({ ok: true });
   });
   admin('/api/board/admin/window', async (req, res) => {

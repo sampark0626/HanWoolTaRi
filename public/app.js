@@ -4,8 +4,14 @@
 (() => {
   const V = '14';          // 이미지를 교체하면 올린다 — 안 올리면 옛 그림이 남는다
   const $ = id => document.getElementById(id);
-  const show = id => document.querySelectorAll('.screen')
-    .forEach(s => s.classList.toggle('on', s.id === id));
+  // 번호·사이즈(uniform.js)가 못 떠도 투표·자리·팀 화면은 그대로 돈다
+  const UN = window.UN || { open() {}, close() {}, openAdmin() {}, closeAdmin() {}, fetchPublic: async () => null };
+  // 화면을 바꾸면 번호·사이즈의 실시간 연결도 정리한다 — 보이지 않는 화면이 연결을 붙들고 있지 않게
+  const show = id => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+    if (id !== 'home') UN.close();
+    if (id !== 'admin') UN.closeAdmin();
+  };
 
   const C = window.BoardCore;
   const POSBY = Object.fromEntries(C.POSITIONS.map(p => [p.id, p]));
@@ -17,6 +23,7 @@
   let voter = '', picks = [], zi = 0;
   let me = { pos: [], foot: '' };         // 내 선수 정보
   let MYVOTE = null, BOARD = null;        // 대시보드가 보여줄 현재 상태
+  let UNI = null;                         // 유니폼 번호·사이즈 요약(공개 스냅샷) — 대시보드 카드와 첫 탭을 고르는 데 쓴다
   let AKEY = '', ADMIN_EDIT = false;      // 관리자 키(이 탭에서만), 관리자가 남의 자리를 고치는 중인지
   let adTab = 'teams', adTeam = 0, adShow = 'all';
   let VIEW_AS = false;                    // 총무가 회원 페이지를 대신 열어 보는 중인지
@@ -80,7 +87,7 @@
         // 투표만 닫힌 것이다. 자리 입력과 내 팀 보기는 그대로 되니 알리기만 한다.
         $('statusNote').textContent = s.ready === false
           ? '아직 준비 중입니다. 조금 뒤에 다시 들어와 주세요.'
-          : '유니폼 투표는 마감되었습니다. 자리 입력과 팀 확인은 그대로 하실 수 있습니다.';
+          : '유니폼 투표는 끝났습니다. 이름을 고르면 번호·사이즈를 정하고, 자리 입력과 팀 확인도 하실 수 있습니다.';
       }
     } catch (e) { /* 상태 조회 실패가 투표를 막지는 않는다 */ }
     await resume();
@@ -147,8 +154,8 @@
     const pad = $('keypad');
     pad.classList.add('busy');
     try {
-      const [v, b] = await Promise.all([fetchMine(), fetchBoard()]);
-      BOARD = b;
+      const [v, b, u] = await Promise.all([fetchMine(), fetchBoard(), UN.fetchPublic()]);
+      BOARD = b; UNI = u;
       readMe();
       if (v === 'badcode') {
         $('pinErr').textContent = '번호가 맞지 않습니다. 다시 눌러보세요.';
@@ -161,7 +168,7 @@
       MYVOTE = v;
       afterLogin();
     } catch (e) {
-      MYVOTE = null; BOARD = null; me = { pos: [], foot: '' };
+      MYVOTE = null; BOARD = null; UNI = null; me = { pos: [], foot: '' };
       afterLogin();                        // 조회가 안 되는 것이 입력을 막지는 않는다
     } finally {
       pad.classList.remove('busy');
@@ -179,9 +186,13 @@
     const co = coachTeamOf(voter) >= 0;
     // 팀을 뽑는 중이거나 확정된 뒤(포메이션을 짜는 때)면 감독은 감독 탭부터 본다
     const live = !!(BOARD && ['draft', 'review', 'done'].includes(BOARD.phase));
-    homeTab = co && live ? 'coach' : 'me';
-    // 감독이 팀을 뽑는 중이면 유니폼·포지션 입력보다 감독 화면이 먼저다
-    if (me.pos.length || (co && live)) showHome(); else showKit();
+    // 번호·사이즈를 아직 안 정했고 접수 중이면 그 탭부터 보여준다. 다 정한 분은 내 페이지로.
+    const mu = UNI && UNI.members.find(m => m.v === voter);
+    const uniTodo = !!UNI && !UNI.locked && !(mu && mu.d);
+    homeTab = co && live ? 'coach' : uniTodo ? 'num' : 'me';
+    // 감독이 팀을 뽑는 중이면 유니폼·포지션 입력보다 감독 화면이 먼저다.
+    // 유니폼 투표가 끝났으면 「유니폼 확인」 화면은 보여줄 게 없다 — 바로 대시보드로.
+    if (me.pos.length || (co && live) || CFG.open === false) showHome(); else showKit();
   }
 
   // 이 탭에 기억해 둔 로그인으로 다시 들어간다. 번호가 이제 안 맞으면 지우고 이름 화면에 머문다.
@@ -191,9 +202,9 @@
     if (!s || !s.v || !CFG.roster.some(m => m.v === s.v)) return;
     voter = s.v; $('code').value = s.c || '';
     try {
-      const [v, b] = await Promise.all([fetchMine(), fetchBoard()]);
+      const [v, b, u] = await Promise.all([fetchMine(), fetchBoard(), UN.fetchPublic()]);
       if (v === 'badcode') { sset('hanMe', ''); voter = ''; $('code').value = ''; return; }
-      BOARD = b; MYVOTE = v; readMe(); afterLogin();
+      BOARD = b; MYVOTE = v; UNI = u; readMe(); afterLogin();
     } catch (e) { /* 불러오지 못하면 이름 화면에 머문다 */ }
   }
 
@@ -315,6 +326,9 @@
     $('hmWho').textContent = `${m ? m.label : voter} 님`;
     const out = [];
 
+    // 유니폼 번호·사이즈 — 투표가 끝난 지금 가장 먼저 할 일
+    out.push(uniCard());
+
     // 유니폼 투표
     if (MYVOTE && MYVOTE.voted) {
       out.push(card('kit', '유니폼 투표', '하셨습니다',
@@ -386,12 +400,38 @@
     $('asBanner').hidden = !VIEW_AS;
     $('asText').textContent = `관리자 보기 · ${m ? m.label : voter} 님의 페이지`;
     $('hmLead').textContent = VIEW_AS ? '이 회원이 보는 화면 그대로입니다.' : '지금 하실 수 있는 일입니다.';
-    // 자체전 감독이면 「감독」 탭이 생긴다
+    // 자체전 감독이면 「감독」 탭이 생긴다. 유니폼 투표가 끝났으면 그 탭은 눌리지 않는다.
     const co = coachTeamOf(voter) >= 0;
-    $('mTabs').hidden = !co;
+    $('mCoachTab').hidden = !co;
+    const voteClosed = CFG.open === false;
+    $('mVoteTab').disabled = voteClosed;
+    $('mVoteTab').setAttribute('aria-disabled', voteClosed);
+    $('mVoteTab').lastElementChild.textContent = voteClosed ? '종료' : '진행 중';
     show('home');
-    setHomeTab(co ? homeTab : 'me', true);
+    setHomeTab(homeTab, true);
     window.scrollTo(0, 0);
+  }
+
+  // 유니폼 번호·사이즈 카드. 공개 스냅샷(UNI)으로 만든다 — 사이즈는 거기 없고, 끝냈는지만 안다.
+  function uniCard() {
+    if (!UNI) return card('uni', '유니폼 번호·사이즈', '불러오지 못했습니다', '', '');
+    const mu = UNI.members.find(m => m.v === voter);
+    const done = !!(mu && mu.d), p = UNI.progress;
+    const state = UNI.locked ? '접수가 마감되었습니다'
+      : done ? `정하셨습니다${mu.n != null ? ' · 등번호 ' + mu.n : ''}` : '아직 안 정하셨습니다';
+    const body = `<p class="note">활동 회원 ${p.active}명 중 ${p.done}명이 정했습니다.</p>`;
+    const act = `<button type="button" class="${done ? 'ghost' : 'primary'}" data-go="num">${
+      UNI.locked ? '내 번호 보기' : done ? '확인 · 고치기' : '번호·사이즈 정하러 가기'}</button>`;
+    return card('uni', '유니폼 번호·사이즈', state, body, act, !done && !UNI.locked);
+  }
+
+  // 내 페이지로 돌아올 때 카드를 최신으로 — 번호·사이즈 탭에서 정한 것이 바로 보이게
+  async function refreshUniCard() {
+    const u = await UN.fetchPublic();
+    if (u) UNI = u;
+    const el = document.querySelector('#cards .hcard.uni');
+    if (!el || homeTab !== 'me') return;
+    el.outerHTML = uniCard();
   }
 
   // ---------- 내 팀 ----------
@@ -544,7 +584,13 @@
     $('adPos').hidden = adTab !== 'pos';
     $('adMembers').hidden = adTab !== 'members';
     $('adBoard').hidden = adTab !== 'board';
+    $('adNum').hidden = adTab !== 'num';
     if (adTab === 'board') { ensureAdFrame(); return; }
+    if (adTab === 'num') {                    // 보드 정보 없이도 열린다 — 번호·사이즈는 자기 API를 쓴다
+      UN.openAdmin({ root: $('adNum'), key: AKEY, onView: v => adminViewMember(v, 'num') });
+      return;
+    }
+    UN.closeAdmin();
     if (!BOARD) {
       $('adTeams').innerHTML = $('adPos').innerHTML = $('adMembers').innerHTML =
         '<p class="note">보드 정보를 불러오지 못했습니다. 잠시 뒤에 다시 열어 주세요.</p>';
@@ -656,11 +702,23 @@
 
   function setHomeTab(t, quiet) {
     if (t === 'coach' && coachTeamOf(voter) < 0) t = 'me';
+    if (t === 'vote') t = 'me';                 // 투표 탭은 남겨 두되 눌리지 않는다
     homeTab = t;
     document.querySelectorAll('#mTabs button').forEach(b => b.classList.toggle('on', b.dataset.m === t));
     $('mMe').hidden = t !== 'me';
+    $('mNum').hidden = t !== 'num';
     $('mCoach').hidden = t !== 'coach';
     if (t === 'coach') ensureCoachFrame();
+    // 번호·사이즈 탭은 열려 있는 동안만 실시간으로 붙는다
+    if (t === 'num') {
+      UN.open({
+        root: $('mNum'), voter, code: $('code').value.trim(), key: VIEW_AS ? AKEY : '',
+        needCode: !!CFG.needCode, ver: V, onSnap: s => { UNI = s; },
+      });
+    } else {
+      UN.close();
+      if (t === 'me' && !quiet) refreshUniCard();
+    }
     if (!quiet) window.scrollTo(0, 0);
   }
 
@@ -691,6 +749,7 @@
   function resetFrames() {
     VIEW_AS = false; ADMIN_EDIT = false; homeTab = 'me';
     sset('boardCoach', '');
+    UN.close(); UN.closeAdmin();
     for (const id of ['coachFrame', 'adFrame']) {
       const f = $(id);
       f.dataset.k = '';
@@ -712,11 +771,12 @@
       }).join('')}</div>`;
   }
 
-  async function adminViewMember(v) {
-    VIEW_AS = true; ADMIN_EDIT = false; voter = v; homeTab = 'me';
+  async function adminViewMember(v, tab) {
+    VIEW_AS = true; ADMIN_EDIT = false; voter = v; homeTab = tab || 'me';
     sset('kitKey', AKEY);
-    const [mv, b] = await Promise.all([fetchMine(), fetchBoard()]);
+    const [mv, b, u] = await Promise.all([fetchMine(), fetchBoard(), UN.fetchPublic()]);
     if (b) BOARD = b;
+    if (u) UNI = u;
     MYVOTE = mv && mv !== 'badcode' ? mv : null;
     readMe();
     showHome();
@@ -724,7 +784,7 @@
 
   async function adminReturn() {
     resetFrames();
-    adTab = 'members';
+    if (adTab !== 'num') adTab = 'members';            // 번호·사이즈 표에서 열어 봤으면 그 표로 돌아간다
     show('admin');
     await adminMain();
     window.scrollTo(0, 0);
@@ -941,11 +1001,15 @@
     if (b.dataset.go === 'vote') toChoose();
     if (b.dataset.go === 'player') { ADMIN_EDIT = VIEW_AS; showPlayer(); }
     if (b.dataset.go === 'team') showTeam();
+    if (b.dataset.go === 'num') setHomeTab('num');
   });
   // 「처음 화면으로」 — 이름 고르는 첫 화면으로 돌아가고, 이 탭의 로그인도 푼다
   $('hmBack').addEventListener('click', () => { sset('hanMe', ''); resetFrames(); show('start'); window.scrollTo(0, 0); });
   $('mTabs').addEventListener('click', e => {
-    const b = e.target.closest('button[data-m]'); if (b) setHomeTab(b.dataset.m);
+    const b = e.target.closest('button[data-m]');
+    if (!b || b.disabled) return;
+    if (b.dataset.m === 'vote') { if (!VIEW_AS) toChoose(); return; }   // 투표가 아직 열려 있을 때만 눌린다
+    setHomeTab(b.dataset.m);
   });
   $('asExit').addEventListener('click', adminReturn);
   $('adMembers').addEventListener('click', e => {

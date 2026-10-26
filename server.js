@@ -386,15 +386,57 @@ app.post('/api/admin/delete', async (req, res) => {
 
 // ---------- 자체전 포메이션 보드 (/board.html) ----------
 // 투표와 한 서버에 있지만 따로 돈다. 보드가 시작에 실패해도 투표는 계속 받는다.
+let boardStore = null;
+let uniform = null;                  // 번호·사이즈 조사 — 활동/휴면이 바뀌면 거기에도 알린다
 try {
+  boardStore = require('./board-store')(pgPool);
   require('./board-routes')(app, {
-    store: require('./board-store')(pgPool),
+    store: boardStore,
     ROSTER, ROSTER_VIEW, LABELS, DORMANT, AGE, AUTH, NEED_CODE,
     codeOk, guard, tooMany, noteFail, fails,
     IS_PROD: !!(process.env.RENDER || process.env.NODE_ENV === 'production'),
+    onActiveChange: () => { if (uniform) uniform.notify(); },
   });
 } catch (e) {
   console.error('[보드] 시작 실패 — 투표는 그대로 동작합니다:', e);
+}
+
+// ---------- 유니폼 번호 · 사이즈 (투표가 끝난 뒤의 일) ----------
+// 투표 결과 1위 유니폼을 보여주고, 회원마다 등번호와 사이즈를 받는다. 번호는 실시간으로 맞춰진다.
+// 기존 번호는 NUMBERS(이름:번호,...) 환경변수나 총무 화면에서 넣는다 — 명부처럼 저장소에 올리지 않는다.
+const SEED = Object.fromEntries(
+  (process.env.NUMBERS || '').split(',').map(s => s.trim()).filter(Boolean)
+    .map(s => { const i = s.lastIndexOf(':'); return [s.slice(0, i).trim(), parseInt(s.slice(i + 1), 10)]; })
+    .filter(([k, v]) => k && Number.isInteger(v)));
+const SIZES = (process.env.SIZES || '').split(',').map(s => s.trim()).filter(Boolean);
+
+// 투표가 끝났는지, 1위가 무엇인지. 집계는 20초 동안 기억해 둔다 — 실시간 전송마다 표를 다시 세지 않게.
+let winnerMemo = { at: 0, v: null };
+async function voteInfo() {
+  try {
+    const closed = !VOTE_OPEN || expired(await deadline());
+    if (!closed) return { closed, winner: null };
+    if (Date.now() - winnerMemo.at > 20000) {
+      const top = tally(await store.all())[0];
+      winnerMemo = { at: Date.now(), v: top && top.score > 0 ? { id: top.id, name: top.name } : null };
+    }
+    return { closed, winner: winnerMemo.v };
+  } catch (e) {
+    console.error('[번호] 투표 상태를 읽지 못했습니다:', e.message);
+    return { closed: !VOTE_OPEN, winner: null };
+  }
+}
+
+try {
+  if (!boardStore) throw new Error('보드 저장소가 없습니다');
+  uniform = require('./uniform-routes')(app, {
+    store: require('./uniform-store')(pgPool),
+    boardStore, ROSTER, LABELS, DORMANT, AUTH, NEED_CODE,
+    SEED, SIZES: SIZES.length ? SIZES : require('./numbers').SIZES_DEFAULT, KITS,
+    codeOk, guard, tooMany, noteFail, fails, voteInfo,
+  });
+} catch (e) {
+  console.error('[번호] 시작 실패 — 투표와 보드는 그대로 동작합니다:', e);
 }
 
 const PORT = process.env.PORT || 3000;
