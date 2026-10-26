@@ -881,6 +881,20 @@ body { background: radial-gradient(120% 70% at 50% 0%, #fafbfc 0%, var(--bg) 60%
 .un-log { list-style: none; margin-top: 4px; font-size: 12.5px; line-height: 1.7; color: var(--mute); }
 .un-log time { color: #9aa1ab; margin-right: 6px; }
 
+/* 총무가 미리 넣어 둔 기존 사이즈 — 골라져 있지만 점선: 본인이 맞다고 확인하기 전 */
+.un-size.seed { background: #f1f3f5; border: 2px dashed #111820; color: var(--ink); box-shadow: none; }
+.un-sizehint {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px;
+  padding: 11px 12px 11px 14px; border-radius: 12px; background: #eaf3ff; color: #1d4f91;
+  font-size: 14px; line-height: 1.5; font-weight: 600;
+}
+.un-sizehint[hidden] { display: none; }
+.un-sizehint b { font-weight: 900; }
+.un-mini.ok { background: #1d4f91; border-color: #1d4f91; color: #fff; font-weight: 800; padding: 10px 16px; }
+.un-mini.ok:disabled { opacity: .45; }
+.un-sz1.seed { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px #111820; }
+.un-sz1 small { margin-left: 5px; font-size: 10px; font-weight: 800; opacity: .7; }
+
 @media (max-width: 360px) {
   .un-big { min-width: 66px; height: 66px; font-size: 34px; }
   .un-winpic { width: 92px; }

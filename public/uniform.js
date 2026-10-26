@@ -104,6 +104,7 @@ window.UN = (() => {
 
       <h3 class="sub">사이즈</h3>
       <div class="un-sizes" id="unSizes" role="group" aria-label="사이즈 고르기"></div>
+      <p class="un-sizehint" id="unSizeHint" hidden></p>
       <p class="hintline muted">사이즈표는 업체 기준입니다. 헷갈리면 입던 옷의 사이즈를 따르세요.</p>
 
       <details class="un-all"><summary>회원별 번호 보기</summary><div id="unList"></div></details>
@@ -127,6 +128,9 @@ window.UN = (() => {
     $('unThree').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
     $('unSizes').addEventListener('click', e => {
       const b = e.target.closest('.un-size'); if (b) setSize(b.dataset.s);
+    });
+    $('unSizeHint').addEventListener('click', e => {
+      const b = e.target.closest('[data-act="size-ok"]'); if (b && !b.disabled && M.ME) setSize(M.ME.size);
     });
     $('unMe').addEventListener('click', e => {
       if (e.target.closest('[data-act="release"]')) release();
@@ -259,6 +263,7 @@ window.UN = (() => {
     const todo = [];
     if (!ok) todo.push('번호');
     if (!ME.size) todo.push('사이즈');
+    else if (ME.sizeSrc === 'seed') todo.push('사이즈 확인');
     el.innerHTML = `
       <div class="un-mehead">
         <div class="un-big${n == null ? ' none' : ''}">${n == null ? '—' : n}</div>
@@ -299,9 +304,16 @@ window.UN = (() => {
   }
 
   function paintSizes() {
-    const cur = M.ME && M.ME.size, off = !!blocked();
+    // 총무가 미리 넣어 둔 기존 사이즈는 점선으로 골라져 있다 — 본인이 맞다고 눌러야 확인된다
+    const cur = M.ME && M.ME.size, seed = !!(cur && M.ME.sizeSrc === 'seed'), off = !!blocked();
     $('unSizes').innerHTML = M.S.sizes.map(s =>
-      `<button type="button" class="un-size${cur === s ? ' on' : ''}" data-s="${esc(s)}" aria-pressed="${cur === s}"${off ? ' disabled' : ''}>${esc(s)}</button>`).join('');
+      `<button type="button" class="un-size${cur === s ? ' on' : ''}${cur === s && seed ? ' seed' : ''}" data-s="${esc(s)}" aria-pressed="${cur === s}"${off ? ' disabled' : ''}>${esc(s)}</button>`).join('');
+    const h = $('unSizeHint');
+    h.hidden = !seed;
+    h.innerHTML = seed
+      ? `<span>이전 시트의 사이즈 <b>${esc(cur)}</b>로 미리 채워 두었습니다. 지금도 맞는지 확인해 주세요.</span>
+         <button type="button" class="un-mini ok" data-act="size-ok"${off ? ' disabled' : ''}>맞아요</button>`
+      : '';
   }
 
   function paintList() {
@@ -382,8 +394,11 @@ window.UN = (() => {
   }
 
   async function setSize(s) {
-    const cur = M.ME && M.ME.size;
-    await send('/api/uniform/size', { size: cur === s ? null : s }, cur === s ? '사이즈를 지웠습니다' : `사이즈 ${s}로 저장했습니다`);
+    const cur = M.ME && M.ME.size, seed = !!(M.ME && M.ME.sizeSrc === 'seed');
+    // 직접 고른 사이즈를 다시 누르면 지운다. 미리 채워 둔 사이즈를 누르면 「맞다」는 확인이다.
+    const clear = cur === s && !seed;
+    await send('/api/uniform/size', { size: clear ? null : s },
+      clear ? '사이즈를 지웠습니다' : cur === s ? `사이즈 ${s}로 확인했습니다` : `사이즈 ${s}로 저장했습니다`);
   }
 
   // ================= 총무 탭 =================
@@ -421,13 +436,14 @@ window.UN = (() => {
     if (ae && root.contains(ae) && /^(TEXTAREA|SELECT|INPUT)$/.test(ae.tagName)) { A.dirty = true; return; }
     A.dirty = false;
     const open = [...root.querySelectorAll('details')].map(d => d.open);
-    const ta = $('unSeedTxt'), sel = $('unWinSel');
-    const keep = { seed: ta ? ta.value : '', win: sel ? sel.value : null };
+    const texts = ['unSeedTxt', 'unSizeTxt'].map(id => [id, $(id) ? $(id).value : '']);
+    const sel = $('unWinSel'), win = sel ? sel.value : null;
     drawAdmin();
     [...root.querySelectorAll('details')].forEach((d, i) => { if (open[i]) d.open = true; });
-    if (keep.seed && $('unSeedTxt')) $('unSeedTxt').value = keep.seed;
-    if (keep.win != null && $('unWinSel')) $('unWinSel').value = keep.win;
+    for (const [id, v] of texts) if (v && $(id)) $(id).value = v;
+    if (win != null && $('unWinSel')) $('unWinSel').value = win;
     if (A.seedHtml && $('unSeedOut')) $('unSeedOut').innerHTML = A.seedHtml;
+    if (A.sizeHtml && $('unSizeOut')) $('unSizeOut').innerHTML = A.sizeHtml;
   }
 
   function drawAdmin() {
@@ -443,7 +459,7 @@ window.UN = (() => {
     A.root.innerHTML = `
       <div class="adprog">활동 ${act.length}명 중 <b>${done}명</b>이 번호와 사이즈를 정했습니다
         <div class="adbar"><i style="width:${pct}%"></i></div></div>
-      <p class="sub">사이즈별 인원 <span class="sleg">활동 회원 · 괄호는 휴면 포함 추가분</span></p>
+      <p class="sub">사이즈별 인원 <span class="sleg">활동 회원 · 확인 전인 기존 사이즈 포함 · 괄호는 휴면 포함 추가분</span></p>
       <div class="un-szrow">${sizeChips}</div>
       ${T.unverifiable.length ? `<p class="note">연락처가 없어 본인 확인이 안 되는 회원: ${T.unverifiable.map(esc).join(', ')} — 아무 4자리나 통과하므로 직접 확인해 주세요.</p>` : ''}
 
@@ -468,6 +484,14 @@ window.UN = (() => {
         <div id="unSeedOut"></div>
       </details>
 
+      <details class="un-det"><summary>기존 사이즈 가져오기</summary>
+        <p class="note">한 줄에 한 명씩 <b>이름 사이즈</b>로 붙여넣으세요 (예: <code>홍길동 XXL</code>). 시트 표기 <code>XXL</code>·<code>XXXL</code>은 <code>2XL</code>·<code>3XL</code>로 바꿔 받고, 사이즈 자리에 <code>-</code>를 쓰면 기존 사이즈를 지웁니다.
+          넣은 사이즈는 회원 화면에 <b>미리 골라진 제안</b>으로 나오고, 본인이 「맞아요」를 누르거나 바꿔야 끝낸 것으로 셉니다. 이미 본인이 사이즈를 정한 회원은 그대로 둡니다.</p>
+        <textarea id="unSizeTxt" class="adinput un-ta" rows="7" placeholder="홍길동 XXL&#10;김철수 L"></textarea>
+        <button type="button" class="ghost" data-a="sizeseed">가져오기</button>
+        <div id="unSizeOut"></div>
+      </details>
+
       <div class="adseg adshow" id="unFilter">
         ${[['all', `전체 ${rows.length}`], ['act', `활동 ${act.length}`], ['off', `휴면 ${rows.length - act.length}`], ['todo', `미완료 ${act.length - done}`]]
         .map(([k, t]) => `<button type="button" data-f="${k}" class="${f === k ? 'on' : ''}">${t}</button>`).join('')}
@@ -477,7 +501,7 @@ window.UN = (() => {
         <li class="${r.a ? '' : 'off'}" data-v="${esc(r.v)}">
           <div><b>${esc(r.l)}${r.a ? '' : ' <em>휴면</em>'}</b>
             <span>${r.n == null ? (r.lost != null ? `기존 ${r.lost}번 · 다시 골라야 함` : '번호 없음') : KIND[r.k] || ''}${r.displaced ? ` · ${r.displaced.n}번을 잃음` : ''}</span></div>
-          <div class="un-adval"><strong>${r.n == null ? '—' : r.n}</strong><i class="un-sz1${r.size ? '' : ' none'}">${r.size || '사이즈 ?'}</i>${r.d ? '<i class="un-ck">✓</i>' : ''}</div>
+          <div class="un-adval"><strong>${r.n == null ? '—' : r.n}</strong><i class="un-sz1${r.size ? '' : ' none'}${r.sk === 'seed' ? ' seed' : ''}"${r.sk === 'seed' ? ' title="미리 넣은 기존 사이즈 — 본인 확인 전"' : ''}>${r.size || '사이즈 ?'}${r.sk === 'seed' ? '<small>기존</small>' : ''}</i>${r.d ? '<i class="un-ck">✓</i>' : ''}</div>
         </li>`).join('') || '<li class="note">조건에 맞는 회원이 없습니다.</li>'}</ul>
 
       <details class="un-det"><summary>변경 기록</summary>
@@ -487,9 +511,10 @@ window.UN = (() => {
 
   function tableText(sep) {
     const T = A.T;
-    // 상태 열: 주문서에 옮기기 전에 걸러 볼 수 있게 — 겹친 번호와 다시 골라야 하는 번호를 표시한다
+    // 상태 열: 주문서에 옮기기 전에 걸러 볼 수 있게 — 겹친 번호, 다시 골라야 하는 번호, 본인이 아직 확인하지 않은 기존 사이즈를 표시한다
     const head = ['이름', '구분', '번호', '사이즈', '상태'];
-    const state = r => (r.k === 'tie' ? '번호 겹침' : r.lost != null ? '번호 다시 골라야 함' : r.d ? '완료' : '미완료');
+    const state = r => (r.k === 'tie' ? '번호 겹침' : r.lost != null ? '번호 다시 골라야 함'
+      : r.sk === 'seed' ? '사이즈 확인 전' : r.d ? '완료' : '미완료');
     const rows = T.rows.slice().sort((a, b) => (b.a - a.a) || a.l.localeCompare(b.l, 'ko'))
       .map(r => [r.l, r.a ? '활동' : '휴면', r.n == null ? '' : r.n, r.size || '', state(r)]);
     const cell = v => (sep === ',' && /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
@@ -530,6 +555,16 @@ window.UN = (() => {
           (j.skipped.length ? `<p class="err">건너뛴 줄</p><ul class="un-log">${j.skipped.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : '');
         $('unSeedTxt').value = '';
         $('unSeedTxt').blur();
+        await loadAdmin();
+      } else if (a === 'sizeseed') {
+        const text = $('unSizeTxt').value;
+        if (!text.trim()) return;
+        const j = await api('POST', '/api/uniform/admin/sizeseed', { text }, mine.key);
+        mine.sizeHtml = `<p class="note"><b>${j.applied}명</b>의 기존 사이즈를 넣었습니다.` +
+          `${j.own ? ` 그중 ${j.own}명은 이미 본인이 사이즈를 정해서 그대로 둡니다.` : ''}</p>` +
+          (j.skipped.length ? `<p class="err">건너뛴 줄</p><ul class="un-log">${j.skipped.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : '');
+        $('unSizeTxt').value = '';
+        $('unSizeTxt').blur();
         await loadAdmin();
       }
     } catch (err) { alert(err.message); }

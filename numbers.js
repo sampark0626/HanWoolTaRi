@@ -13,9 +13,12 @@
 //     회원들의 선택에서 매번 계산하기 때문에 따로 풀어줄 것이 없다.
 //   · 기존 번호끼리 겹친 활동 회원은 둘 다 그 번호를 쥔 채로 두고, 먼저 확정하는 사람이 가져간다.
 //
-//   state: { v, locked, winner, seed: {이름: 번호|null}, members: {이름: record}, log }
-//   record: { number?: 번호|null, size?: 'M', nat, at, displaced?: {n, by, at} }
-//     number 키가 **있으면** 본인이 정한 것이다(null 은 일부러 비운 것). 없으면 기존 번호(seed)를 따른다.
+//   · 기존 사이즈(sizeSeed)는 번호와 달리 **제안**이다. 화면에 미리 골라져 있지만 본인이 맞다고 확인하거나
+//     바꿔야 「끝낸 것」으로 센다 — 옛 시트의 사이즈가 이번 옷에도 맞는지는 본인만 안다.
+//
+//   state: { v, locked, winner, seed: {이름: 번호|null}, sizeSeed: {이름: 사이즈|null}, members: {이름: record}, log }
+//   record: { number?: 번호|null, size?: 'M'|null, nat, at, displaced?: {n, by, at} }
+//     number·size 키가 **있으면** 본인이 정한 것이다(null 은 일부러 비운 것). 없으면 기존 값(seed·sizeSeed)을 따른다.
 
 const LOG_MAX = 150;
 const MIN = 0, MAX = 999;
@@ -32,13 +35,14 @@ const lab = (ctx, n) => (ctx.label ? ctx.label(n) : n);
 const nowIso = ctx => (ctx && ctx.now ? ctx.now() : new Date()).toISOString();
 
 function initial() {
-  return { v: 1, locked: false, winner: null, seed: {}, members: {}, log: [] };
+  return { v: 1, locked: false, winner: null, seed: {}, sizeSeed: {}, members: {}, log: [] };
 }
 
 // 옛 저장 상태에 없는 필드를 채운다. 읽고 쓰기 전에 한 번 부른다.
 function norm(st) {
   st.members = st.members || {};
   st.seed = st.seed || {};
+  st.sizeSeed = st.sizeSeed || {};
   st.log = st.log || [];
   return st;
 }
@@ -102,9 +106,18 @@ function resolve(st, ctx) {
   return { numbers, mine };
 }
 
+// 지금 이 회원의 사이즈. 본인이 정했으면 pick(비운 것도 본인이 정한 것), 아니면 총무가 미리 넣은 기존 사이즈(seed).
+function sizeOf(st, ctx, name) {
+  const r = st.members[name];
+  if (r && has(r, 'size')) return r.size ? { size: r.size, src: 'pick' } : { size: null, src: null };
+  const s = has(st.sizeSeed, name) ? st.sizeSeed[name] : null;
+  return s && (ctx.sizes || SIZES_DEFAULT).includes(s) ? { size: s, src: 'seed' } : { size: null, src: null };
+}
+
 // 번호가 정해졌고 사이즈를 골랐으면 끝낸 것이다.
 //   · 직접 골랐거나 일부러 비웠으면 끝. 다만 번호를 빼앗기고 아직 새로 안 골랐으면(displaced) 끝이 아니다.
 //   · 직접 안 골랐어도 기존 번호를 그대로 쥐고 있으면(=유지) 끝.
+//   · 사이즈는 **본인이 확인한 것**만 센다 — 총무가 미리 넣은 기존 사이즈는 제안일 뿐이다.
 function isDone(st, ctx, name, m) {
   const rec = st.members[name];
   if (!rec || !rec.size) return false;
@@ -160,7 +173,8 @@ function release(st, ctx, name) {
 
 function setSize(st, ctx, name, size) {
   const rec = member(st, ctx, name);
-  if (size == null || size === '') delete rec.size;
+  // 비울 때도 키는 남긴다(null) — 안 그러면 총무가 넣어 둔 기존 사이즈가 다시 살아난다
+  if (size == null || size === '') rec.size = null;
   else if ((ctx.sizes || SIZES_DEFAULT).includes(size)) rec.size = size;
   else fail('사이즈 값이 올바르지 않습니다.');
   rec.at = nowIso(ctx);
@@ -188,16 +202,22 @@ function setWinner(st, id, valid) {
   return st;
 }
 
-// ---------- 기존 번호 가져오기 ----------
+// ---------- 기존 번호·사이즈 가져오기 ----------
+// 붙여넣은 이름을 명부의 이름으로 찾는다. 명부 표기(최지훈S)와 화면에 보이는 이름(최지훈 (동생)) 둘 다, 공백은 무시.
+function rosterIndex(ctx) {
+  const squash = s => String(s).replace(/\s+/g, '');
+  const byKey = new Map();
+  for (const n of ctx.roster) byKey.set(squash(n), n);
+  for (const n of ctx.roster) { const k = squash(lab(ctx, n)); if (!byKey.has(k)) byKey.set(k, n); }
+  return { squash, byKey };
+}
+
 // 한 줄에 한 명:  이름 번호   (공백·탭·쉼표·콜론 아무거나).  번호 자리에 - 를 쓰면 기존 번호를 지운다.
 // 이름은 명부 표기(최지훈S)나 화면에 보이는 이름(최지훈 (동생))과 같아야 한다.
 // 이미 본인이 직접 고른 회원은 그대로 둔다 — 기존 번호는 직접 고르기 전까지만 효력이 있다.
 function importSeed(st, ctx, text) {
   norm(st);
-  const squash = s => String(s).replace(/\s+/g, '');
-  const byKey = new Map();
-  for (const n of ctx.roster) byKey.set(squash(n), n);
-  for (const n of ctx.roster) { const k = squash(lab(ctx, n)); if (!byKey.has(k)) byKey.set(k, n); }
+  const { squash, byKey } = rosterIndex(ctx);
 
   const set = {}, skipped = [];
   for (const raw of String(text || '').split(/\r?\n/)) {
@@ -226,6 +246,42 @@ function importSeed(st, ctx, text) {
       warnings.push(`${lab(ctx, name)}: 기존 ${mine[name].n}번을 다른 활동 회원이 쥐고 있어 새로 골라야 합니다.`);
   }
   return { applied, skipped, warnings };
+}
+
+// 옛 시트의 표기(XXL, XXXL)를 앱 표기(2XL, 3XL)로 바꿔 받는다. 대소문자·공백은 가리지 않는다.
+const SIZE_ALIAS = { XXL: '2XL', XXXL: '3XL', XXXXL: '4XL' };
+function normSize(raw, sizes) {
+  const t = String(raw).toUpperCase().replace(/\s+/g, '');
+  const v = SIZE_ALIAS[t] || t;
+  return sizes.includes(v) ? v : null;
+}
+
+// 한 줄에 한 명:  이름 사이즈   (구분자는 번호와 같다).  사이즈 자리에 - 를 쓰면 기존 사이즈를 지운다.
+// 기존 사이즈는 본인이 아직 확인하지 않은 **제안**이다: 화면에 미리 골라져 있고, 맞다고 누르거나 바꿔야 끝낸 것으로 센다.
+// 이미 본인이 사이즈를 정한 회원의 값은 그대로 둔다(own 으로 몇 명인지 알려준다).
+function importSizes(st, ctx, text) {
+  norm(st);
+  const sizes = ctx.sizes || SIZES_DEFAULT;
+  const { squash, byKey } = rosterIndex(ctx);
+
+  const set = {}, skipped = [];
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = /^(.*?)[\s,:;=]+(\S+)$/.exec(line);
+    if (!m) { skipped.push(`${line} — 「이름 사이즈」 모양이 아닙니다`); continue; }
+    const who = byKey.get(squash(m[1]));
+    if (!who) { skipped.push(`${line} — 명부에 없는 이름`); continue; }
+    if (m[2] === '-') { set[who] = null; continue; }
+    const s = normSize(m[2], sizes);
+    if (!s) { skipped.push(`${line} — 사이즈 목록(${sizes.join(' ')})에 없는 값`); continue; }
+    set[who] = s;
+  }
+  Object.assign(st.sizeSeed, set);
+  const applied = Object.keys(set).length;
+  const own = Object.keys(set).filter(n => has(st.members[n], 'size')).length;
+  if (applied) note(st, `기존 사이즈 ${applied}명을 가져왔습니다.`, ctx);
+  return { applied, skipped, own };
 }
 
 // ---------- 보여주기 ----------
@@ -258,6 +314,7 @@ function privateView(st, ctx, name) {
   if (!m) fail('명부에 없는 이름입니다.');
   const rec = st.members[name] || {};
   const held = m.status === 'held' || m.status === 'tie';
+  const sz = sizeOf(st, ctx, name);
   return {
     member: name,
     active: !!ctx.isActive(name),
@@ -266,7 +323,8 @@ function privateView(st, ctx, name) {
     status: m.status,
     lostNumber: m.status === 'lost' ? m.n : null,
     seed: seedOf(st, ctx, name),
-    size: rec.size || null,
+    size: sz.size,
+    sizeSrc: sz.src,                         // 'pick' 본인이 정함 · 'seed' 총무가 미리 넣음(확인 전)
     displaced: rec.displaced || null,
     done: isDone(st, ctx, name, m),
   };
@@ -278,12 +336,14 @@ function adminView(st, ctx) {
   const rows = ctx.roster.map(v => {
     const m = mine[v], rec = st.members[v] || {};
     const held = m.status === 'held' || m.status === 'tie';
+    const sz = sizeOf(st, ctx, v);
     return {
       v, l: lab(ctx, v), a: !!ctx.isActive(v),
       n: held ? m.n : null,
       k: m.status === 'lost' ? 'lost' : m.status === 'tie' ? 'tie' : (held ? m.src : ''),
       lost: m.status === 'lost' ? m.n : null,
-      size: rec.size || null,
+      size: sz.size,
+      sk: sz.src,                            // 'seed' 이면 본인이 아직 확인하지 않은 기존 사이즈
       d: isDone(st, ctx, v, m),
       displaced: rec.displaced || null,
       at: rec.at || null,
@@ -305,7 +365,7 @@ function adminView(st, ctx) {
 }
 
 module.exports = {
-  RuleError, MIN, MAX, SIZES_DEFAULT, initial, norm, resolve, claimOf, seedOf, isDone,
-  claim, release, setSize, clearMember, setLocked, setWinner, importSeed,
+  RuleError, MIN, MAX, SIZES_DEFAULT, initial, norm, resolve, claimOf, seedOf, sizeOf, isDone,
+  claim, release, setSize, clearMember, setLocked, setWinner, importSeed, importSizes,
   publicView, privateView, adminView,
 };

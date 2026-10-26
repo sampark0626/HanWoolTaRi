@@ -5,7 +5,7 @@
 //                               — 번호가 누구 것인지는 보이고, **사이즈는 보이지 않는다**
 //     회원 본인                  내 정보·번호 고르기·놓기·사이즈: POST /mine /claim /release /size
 //                               (전화 뒷 4자리 필수 — 번호는 남의 자리를 바꾸므로 틀리면 막는다)
-//     총무(열쇠, ?key=)          같은 요청을 대신하고(번호 확인 없음), 표·마감·유니폼 지정·기존 번호 가져오기
+//     총무(열쇠, ?key=)          같은 요청을 대신하고(번호 확인 없음), 표·마감·유니폼 지정·기존 번호/사이즈 가져오기
 //
 //   실시간: 번호가 바뀔 때마다 접속 중인 모두에게 SSE로 스냅샷을 보낸다. 번호의 상태(잠김/휴면/빔)는
 //   저장하지 않고 스냅샷을 만들 때마다 회원들의 선택에서 계산한다(numbers.js).
@@ -187,6 +187,14 @@ module.exports = function mountUniform(app, deps) {
     const ctx = await ctxNow();
     let out;
     await touch(s => { out = N.importSeed(s, ctx, (req.body || {}).text); return s; });
+    res.json({ ok: true, ...out });
+  });
+
+  // 기존 사이즈 — 본인이 확인하기 전까지는 미리 골라 둔 제안이다 (numbers.js importSizes)
+  admin('post', '/api/uniform/admin/sizeseed', async (req, res) => {
+    const ctx = await ctxNow();
+    let out;
+    await touch(s => { out = N.importSizes(s, ctx, (req.body || {}).text); return s; });
     res.json({ ok: true, ...out });
   });
 

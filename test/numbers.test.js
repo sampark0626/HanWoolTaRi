@@ -226,3 +226,87 @@ test('로그는 150건까지만 남긴다', () => {
   for (let i = 0; i < 400; i++) N.claim(st, ctx, '가', i % 2 ? 1 : 2);
   assert.ok(st.log.length <= 150);
 });
+
+// ---------- 기존 사이즈 ----------
+const sz = (st, ctx, n) => N.privateView(st, ctx, n);
+
+test('기존 사이즈 가져오기 — 시트 표기(XXL·XXXL)를 2XL·3XL로, 대소문자·공백 무시', () => {
+  const ctx = mkctx();
+  const st = N.initial();
+  const r = N.importSizes(st, ctx, '가 XXL\n나\txxxl\n다, xl\n라: 2xl\n휴1 M\n휴2 XXXXL');
+  assert.equal(r.applied, 6);
+  assert.deepEqual(r.skipped, []);
+  assert.deepEqual(['가', '나', '다', '라', '휴1', '휴2'].map(n => sz(st, ctx, n).size),
+    ['2XL', '3XL', 'XL', '2XL', 'M', '4XL']);
+});
+
+test('기존 사이즈는 제안이다 — 미리 골라져 있지만 본인이 확인해야 끝낸 것', () => {
+  const ctx = mkctx({ seed: { 가: 7 } });
+  const st = N.initial();
+  N.importSizes(st, ctx, '가 XL');
+  let v = sz(st, ctx, '가');
+  assert.equal(v.size, 'XL');
+  assert.equal(v.sizeSrc, 'seed');
+  assert.equal(v.done, false);                                // 기존 번호를 쥐고 있어도 사이즈를 아직 확인 안 했다
+  assert.equal(N.publicView(st, ctx).progress.done, 0);
+  N.setSize(st, ctx, '가', 'XL');                             // 같은 값을 보내면 확인
+  v = sz(st, ctx, '가');
+  assert.equal(v.sizeSrc, 'pick');
+  assert.equal(v.done, true);
+  assert.equal(N.publicView(st, ctx).progress.done, 1);
+});
+
+test('본인이 바꾸면 기존 사이즈는 물러나고, 지워도 되살아나지 않는다', () => {
+  const ctx = mkctx();
+  const st = N.initial();
+  N.importSizes(st, ctx, '가 XL');
+  N.setSize(st, ctx, '가', 'M');
+  assert.equal(sz(st, ctx, '가').size, 'M');
+  N.setSize(st, ctx, '가', null);                             // 일부러 비웠다
+  assert.deepEqual([sz(st, ctx, '가').size, sz(st, ctx, '가').sizeSrc], [null, null]);
+  N.clearMember(st, ctx, '가');                               // 총무가 기록을 지우면 기존 사이즈로 돌아간다
+  assert.equal(sz(st, ctx, '가').size, 'XL');
+});
+
+test('다시 가져와도 본인이 정한 사이즈는 건드리지 않고, 몇 명인지 알려준다', () => {
+  const ctx = mkctx();
+  const st = N.initial();
+  N.setSize(st, ctx, '가', 'S');
+  const r = N.importSizes(st, ctx, '가 XXL\n나 L');
+  assert.equal(r.applied, 2);
+  assert.equal(r.own, 1);
+  assert.equal(sz(st, ctx, '가').size, 'S');
+  assert.equal(sz(st, ctx, '나').size, 'L');
+});
+
+test('사이즈 가져오기: 못 알아본 줄은 건너뛰고 이유를 알려준다. - 는 지운다', () => {
+  const ctx = mkctx({ roster: ['가', '나S', '나B'], label: n => ({ 나S: '나 (동생)', 나B: '나 (형)' }[n] || n), isActive: () => true });
+  const st = N.initial();
+  N.importSizes(st, ctx, '가 L');
+  const r = N.importSizes(st, ctx, '가 -\n나 (동생) XXL\n없는사람 M\n나B 95\n가\n나S');
+  assert.equal(sz(st, ctx, '가').size, null);                 // - 가 기존 사이즈를 지웠다
+  assert.equal(sz(st, ctx, '나S').size, '2XL');
+  assert.equal(r.applied, 2);
+  assert.equal(r.skipped.length, 4);
+  assert.match(r.skipped.join('\n'), /없는사람 M — 명부에 없는 이름/);
+  assert.match(r.skipped.join('\n'), /나B 95 — 사이즈 목록/);
+});
+
+test('총무 표: 기존 사이즈도 집계하되 확인 전(sk=seed)으로 표시한다. 공개 응답에는 없다', () => {
+  const ctx = mkctx();
+  const st = N.initial();
+  N.importSizes(st, ctx, '가 XL\n나 XL');
+  N.setSize(st, ctx, '나', 'XL');
+  const a = N.adminView(st, ctx);
+  assert.equal(a.sizeActive.XL, 2);
+  assert.equal(a.rows.find(r => r.v === '가').sk, 'seed');
+  assert.equal(a.rows.find(r => r.v === '나').sk, 'pick');
+  assert.deepEqual(Object.keys(N.publicView(st, ctx).members[0]).sort(), ['a', 'd', 'k', 'l', 'n', 'v']);
+});
+
+test('사이즈 목록을 바꿔도 목록에 없는 기존 사이즈는 쓰지 않는다', () => {
+  const st = N.initial();
+  N.importSizes(st, mkctx(), '가 XL');
+  const small = mkctx({ sizes: ['S', 'M', 'L'] });
+  assert.equal(sz(st, small, '가').size, null);
+});

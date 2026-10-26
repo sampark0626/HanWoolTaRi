@@ -194,6 +194,44 @@ test('총무: 표·유니폼 지정·기존 번호 가져오기·기록 지우�
   } finally { s.close(); }
 });
 
+test('기존 사이즈: 총무만 넣고, 본인에게는 미리 골라진 제안으로 보이며, 확인해야 끝난다', async () => {
+  const s = await boot();
+  try {
+    let r = await s.call('POST', '/api/uniform/admin/sizeseed', { text: '나 XXL' });
+    assert.equal(r.status, 403);                                                   // 열쇠 없음
+
+    r = await s.call('POST', `/api/uniform/admin/sizeseed?key=${KEY}`, { text: '나 XXL\n다 XXXL\n모르는사람 M\n가 95' });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.applied, 2);
+    assert.equal(r.body.skipped.length, 2);
+
+    // 공개 응답에는 사이즈가 없고, 끝낸 사람도 아직 0명
+    const pub = (await s.call('GET', '/api/uniform')).body;
+    assert.ok(!JSON.stringify(pub.members).includes('2XL'));
+    assert.equal(pub.progress.done, 0);
+
+    // 본인에게는 미리 골라진 제안
+    r = await s.call('POST', '/api/uniform/mine', as('나'));
+    assert.equal(r.body.me.size, '2XL');
+    assert.equal(r.body.me.sizeSrc, 'seed');
+    assert.equal(r.body.me.done, false);
+
+    // 같은 값을 보내면 확인 → 끝 (번호는 따로 정해야 한다)
+    r = await s.call('POST', '/api/uniform/size', as('나', { size: '2XL' }));
+    assert.equal(r.body.me.sizeSrc, 'pick');
+    r = await s.call('POST', '/api/uniform/claim', as('나', { number: 31 }));
+    assert.equal(r.body.me.done, true);
+    assert.equal((await s.call('GET', '/api/uniform')).body.progress.done, 1);
+
+    // 총무 표에는 확인 전(seed)과 확인(pick)이 구분되어 나온다
+    const t = (await s.call('GET', `/api/uniform/admin/table?key=${KEY}`)).body;
+    assert.equal(t.rows.find(x => x.v === '나').sk, 'pick');
+    assert.equal(t.rows.find(x => x.v === '다').sk, 'seed');
+    assert.equal(t.sizeActive['2XL'], 1);
+    assert.equal(t.sizeActive['3XL'], 1);
+  } finally { s.close(); }
+});
+
 test('연락처가 없는 회원은 본인 확인을 못 하므로 총무 표에 따로 나온다', async () => {
   const s = await boot({ deps: { AUTH: { 가: 'x' }, codeOk: () => true } });
   try {
