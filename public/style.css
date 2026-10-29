@@ -731,15 +731,20 @@ body { background: radial-gradient(120% 70% at 50% 0%, #fafbfc 0%, var(--bg) 60%
 .legend .lg.take { border-style: dashed; border-color: #cbd2da; background: #eceff2; }
 .legend .lg.on { border-color: #111820; background: #111820; }
 
-.numgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; }
+/* .wrap 이 flex 컨테이너라 이 격자는 flex 아이템이다. width·min-width 를 묶어 둔다 —
+   칸 안의 이름은 줄바꿈이 없어서, 안 묶으면 내용만큼 부풀 수 있다. */
+.numgrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 7px;
+  width: 100%; min-width: 0;
+}
 .num {
-  position: relative; padding: 7px 2px 6px; min-height: 50px; border: 2px solid var(--line);
-  border-radius: 12px; background: #fff; text-align: center; overflow: hidden;
+  position: relative; padding: 9px 3px 8px; min-height: 62px; border: 2px solid var(--line);
+  border-radius: 13px; background: #fff; text-align: center; overflow: hidden;
   transition: transform .1s ease;
 }
-.num b { display: block; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.num b { display: block; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .num i {
-  display: block; margin-top: 1px; font-style: normal; font-size: 9.5px; line-height: 1.25;
+  display: block; margin-top: 2px; font-style: normal; font-size: 11px; line-height: 1.25;
   color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .num:active { transform: scale(.95); }
@@ -791,8 +796,13 @@ body { background: radial-gradient(120% 70% at 50% 0%, #fafbfc 0%, var(--bg) 60%
   background: #fff8f4; border: 2px solid #f3c7ae; font-size: 14px; line-height: 1.6; color: #9a3412;
 }
 
-@media (max-width: 380px) {
-  .numgrid { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 5px; }
-  .num { min-height: 46px; }
-  .num b { font-size: 15.5px; }
+/* 폰에서는 칸 수를 고정한다. auto-fill 로 두면 기기 너비에 따라 6~7칸까지 들어가
+   번호가 깨알처럼 작아진다 (총무 확인 2026-10-29 — 「모바일로 보면 너무 작아요」).
+   375px 폰에서 한 줄 5칸이면 칸이 61×69px, 번호가 22px이다.
+   1fr 이 아니라 minmax(0, 1fr) 로 둔다 — 이름이 길어도 칸이 밀려 커지지 않게. */
+@media (max-width: 440px) {
+  .numgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+}
+@media (max-width: 340px) {
+  .numgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 }
