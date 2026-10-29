@@ -62,6 +62,18 @@ const AGE = Object.fromEntries(
     .map(s => { const i = s.lastIndexOf(':'); return [s.slice(0, i).trim(), s.slice(i + 1).trim()]; })
     .filter(([k, v]) => k && v));
 
+// 등번호와 사이즈 — 명부에 있는 기존 값.  이름:번호 / 이름:사이즈
+// 기존 번호를 그대로 쓰게 하고(활동 회원은 유지), 활동 회원이 쓰는 번호는 다른 분이
+// 고르지 못하게 하는 데 쓴다. 휴면 회원 번호는 비워 둘 이유가 없어 고를 수 있다.
+// 연락처·생년과 달리 등번호는 등에 붙어 다니는 값이고 사이즈는 주문에 필요하다 —
+// 그래도 명부 원본을 올리지는 않는다. 이 두 줄만 scripts/make_kit_env.py 가 만든다.
+const pairs = v => Object.fromEntries(
+  (v || '').split(',').map(s => s.trim()).filter(Boolean)
+    .map(s => { const i = s.lastIndexOf(':'); return [s.slice(0, i).trim(), s.slice(i + 1).trim()]; })
+    .filter(([k, x]) => k && x));
+const BASE_NUMBER = pairs(process.env.NUMBERS);
+const BASE_SIZE = pairs(process.env.SIZES);
+
 function codeOk(name, code) {
   const want = AUTH[name];
   if (!want) return true;          // 연락처가 없는 회원은 확인할 방법이 없다
@@ -214,6 +226,24 @@ function tally(rows) {
     id: k.id, name: k.name, vendor: k.vendor, price: k.price, family: k.family,
     score: score[k.id], first: first[k.id], picked: picked[k.id],
   })).sort((a, b) => b.score - a.score || b.first - a.first || a.name.localeCompare(b.name));
+}
+
+// 1등 디자인. **투표가 끝난 뒤에만** 내려준다 — 투표 중에 순위가 보이면 뒤에 투표하는
+// 분이 끌려간다(그래서 /api/results 는 총무만 본다).
+// 어디 적어 두지 않고 그때그때 집계한다. 표가 더 들어오거나 지워져도 저절로 맞는다.
+async function winnerKit() {
+  const d = await deadline();
+  if (VOTE_OPEN && !expired(d)) return null;
+  const rows = await store.all();
+  const rank = tally(rows);
+  if (!rank.length || !rank[0].score) return null;
+  const top = rank[0];
+  return {
+    id: top.id, name: top.name, family: top.family,     // 가격·업체명은 싣지 않는다
+    score: top.score, first: top.first, picked: top.picked,
+    voters: rows.length,
+    tie: rank.length > 1 && rank[1].score === top.score,
+  };
 }
 
 // ---------- API ----------
@@ -383,6 +413,21 @@ app.post('/api/admin/delete', async (req, res) => {
   const n = await store.del(voter);
   res.json({ ok: true, deleted: n });
 });
+
+// ---------- 등번호·사이즈 신청 (로그인하면 첫 화면) ----------
+// 투표와 한 서버에 있지만 따로 돈다. 여기서 터져도 투표와 보드는 그대로 돈다.
+try {
+  require('./kit-routes')(app, {
+    store: require('./kit-store')(pgPool),
+    settings: { get: k => store.get(k), set: (k, v) => store.set(k, v) },
+    ROSTER, ROSTER_VIEW, LABELS, DORMANT, AUTH, NEED_CODE,
+    BASE: BASE_NUMBER, BASE_SIZE,
+    codeOk, guard, tooMany, noteFail, fails,
+    winner: winnerKit,
+  });
+} catch (e) {
+  console.error('[등번호] 시작 실패 — 투표와 보드는 그대로 동작합니다:', e);
+}
 
 // ---------- 자체전 포메이션 보드 (/board.html) ----------
 // 투표와 한 서버에 있지만 따로 돈다. 보드가 시작에 실패해도 투표는 계속 받는다.

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=23">
+<link rel="stylesheet" href="/style.css?v=25">
 </head>
 <body>
 
@@ -70,17 +70,47 @@
   </div>
 </section>
 
-<!-- 3. 내 유니폼 확인 — 로그인하면 가장 먼저 -->
-<section id="kit" class="screen">
+<!-- 3. 등번호·사이즈 신청 — 로그인하면 가장 먼저 (총무 요청 2026-10-28)
+     투표가 끝났으니 이 화면이 첫 화면이다. 1위 시안을 위에 두고 그 아래에서 번호를 고른다. -->
+<section id="numbers" class="screen">
   <div class="wrap">
-    <p class="eyebrow" id="ktWho"></p>
-    <h2 id="ktTitle"></h2>
-    <p class="lead" id="ktLead"></p>
-    <div id="ktList" class="mylist"></div>
+    <p class="eyebrow" id="nbWho"></p>
+    <h2 id="nbTitle">등번호와 사이즈를 골라주세요</h2>
+    <p class="lead" id="nbLead">2027 시즌 유니폼을 맞춥니다. 번호와 사이즈만 정해 주시면 됩니다.</p>
+
+    <div id="nbWinner" class="winner" hidden></div>
+
+    <h3 class="sub">사이즈</h3>
+    <div id="nbSizes" class="sizes" role="group" aria-label="사이즈 고르기"></div>
+    <p class="hintline" id="nbSizeHint"></p>
+
+    <h3 class="sub">등번호<span id="nbPicked" class="picked" hidden></span></h3>
+    <ul class="legend">
+      <li><i class="lg free"></i>비어 있음 · 고를 수 있습니다</li>
+      <li><i class="lg dorm"></i>휴면 회원 번호 · 고를 수 있습니다</li>
+      <li><i class="lg take"></i>활동 회원이 쓰는 번호 · 고를 수 없습니다</li>
+      <li><i class="lg on"></i>지금 고른 번호</li>
+    </ul>
+    <div id="nbGrid" class="numgrid" role="group" aria-label="등번호 고르기"></div>
+    <p class="hintline" id="nbTap">번호를 누르면 바로 아래 「신청하기」가 열립니다.</p>
+
+    <h3 class="sub">세 자리 번호 (100~999)</h3>
+    <div class="bigrow">
+      <input id="nbBig" type="tel" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="예: 100">
+      <button id="nbBigAdd" type="button">이 번호로</button>
+    </div>
+    <p class="hintline">격자에 없는 번호도 쓸 수 있습니다. 세 자리는 여기에 적어주세요.</p>
+
+    <h3 class="sub">남길 말씀 (안 적어도 됩니다)</h3>
+    <input id="nbNote" class="adinput" type="text" maxlength="40" autocomplete="off"
+           placeholder="예: 하의는 L로 부탁드립니다">
+
+    <p id="nbErr" class="err" hidden></p>
+    <p class="note" id="nbCount"></p>
+
     <div class="stick">
-      <button id="ktNext" class="primary">확인했습니다 · 자리 고르러 가기</button>
-      <button id="ktVote" class="ghost" hidden>유니폼 투표하기</button>
-      <button id="ktRevote" class="ghost" hidden>다시 고르기</button>
+      <button id="nbSave" class="primary" disabled>이 번호로 신청하기</button>
+      <button id="nbSkip" class="plainlink">나중에 하기</button>
     </div>
   </div>
 </section>
@@ -167,12 +197,14 @@
 
     <div id="adMain" hidden>
       <div class="adtabs" id="adTabs">
-        <button type="button" data-tab="teams" class="on">팀·포메이션</button>
+        <button type="button" data-tab="kit" class="on">등번호·사이즈</button>
+        <button type="button" data-tab="teams">팀·포메이션</button>
         <button type="button" data-tab="pos">포지션 관리</button>
         <button type="button" data-tab="members">회원 페이지</button>
         <button type="button" data-tab="board">감독 보드</button>
       </div>
-      <div id="adTeams"></div>
+      <div id="adKit"></div>
+      <div id="adTeams" hidden></div>
       <div id="adPos" hidden></div>
       <div id="adMembers" hidden></div>
       <div id="adBoard" class="adboard" hidden><iframe id="adFrame" title="감독 보드"></iframe></div>
@@ -241,7 +273,8 @@
 </section>
 
 <script src="/core.js?v=3"></script>
+<script src="/kitnum.js?v=1"></script>
 <script src="/lineup.js?v=2"></script>
-<script src="/app.js?v=29"></script>
+<script src="/app.js?v=32"></script>
 </body>
 </html>
