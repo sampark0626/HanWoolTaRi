@@ -262,11 +262,14 @@
     const w = k.winner;
     $('nbWinner').hidden = !w;
     if (w) {
+      // 카드 전체가 버튼이다 — 작은 돋보기 아이콘보다 누르기 쉽다 (총무 요청 2026-10-31).
       $('nbWinner').innerHTML =
-        `<img src="/kits/${w.id}.jpg?v=${V}" alt="${esc(w.name)}">
+        `<img src="/kits/${w.id}.jpg?v=${V}" alt="">
          <div><span class="wtag">회원 투표 ${w.tie ? '공동 1위' : '1위'}</span>
          <strong>${esc(w.name)}</strong>
-         <p class="note">${w.voters}명 참여 · 1순위 ${w.first}표 · ${w.score}점</p></div>`;
+         <p class="note">${w.voters}명이 투표했습니다</p>
+         <span class="wmore">눌러서 크게 보기</span></div>`;
+      $('nbWinner').setAttribute('aria-label', `${w.name} — 눌러서 크게 보기`);
     }
     $('nbTitle').textContent = k.mine ? '신청하신 등번호입니다' : '등번호와 사이즈를 골라주세요';
     $('nbLead').textContent = w
@@ -281,7 +284,7 @@
     const closed = k.open === false && !ADMIN_EDIT;
     $('nbCount').textContent = closed
       ? '신청 기간이 끝났습니다. 바꾸실 것이 있으면 총무에게 말씀해 주세요.'
-      : `활동 회원 ${k.count.total}명 중 ${k.count.done}명이 신청했습니다.`;
+      : `${k.count.total}명 중 ${k.count.done}명이 신청하셨습니다.`;
     $('nbSave').disabled = closed || !picked || !pick.size;
     $('nbSave').textContent = k.mine ? '이 번호로 고치기' : '이 번호로 신청하기';
   }
@@ -317,8 +320,8 @@
     };
     $('nbGrid').innerHTML = grid.concat(over).map(cell).join('');
     $('nbTap').textContent = k.mineHolds != null && k.mineHolds !== pick.number
-      ? `원래 쓰시던 ${k.mineHolds}번은 초록 점으로 표시해 두었습니다. 그대로 쓰시려면 다시 눌러주세요.`
-      : '회색 칸은 다른 활동 회원이 쓰는 번호라 누를 수 없습니다.';
+      ? `원래 쓰시던 ${k.mineHolds}번에는 초록 점을 찍어 두었습니다. 그대로 쓰시려면 다시 눌러주세요.`
+      : '회색 칸은 다른 분이 쓰는 번호라 누를 수 없습니다.';
   }
 
   function tapNumber(n, locked, who) {
@@ -366,6 +369,19 @@
       btn.textContent = was;
     }
   }
+
+  // 확정 유니폼 크게 보기. 큰 그림(/kits/lg)을 쓴다 — 목록용 그림은 확대하면 뭉갠다.
+  function openKitZoom() {
+    const w = KIT && KIT.winner;
+    if (!w) return;
+    $('kzImg').src = `/kits/lg/${w.id}.jpg?v=${V}`;
+    $('kzImg').alt = w.name;
+    $('kzName').textContent = w.name;
+    $('kzoom').hidden = false;
+    document.body.style.overflow = 'hidden';
+    $('kzClose').focus();
+  }
+  const closeKitZoom = () => { $('kzoom').hidden = true; document.body.style.overflow = ''; };
 
   // 이 화면에 있는 동안만 돈다. 다른 분이 번호를 놓거나 가져가면 몇 초 안에 색이 바뀐다.
   function startKitPoll() {
@@ -492,8 +508,9 @@
       const kclosed = KIT.open === false;
       if (mine && mine.number != null) {
         out.push(card('num', '등번호·사이즈', '신청하셨습니다',
-          `<p class="pills"><span class="pill"><i>번호</i>${mine.number}</span>
-            <span class="pill"><i>사이즈</i>${esc(sizeName(mine.size))}</span></p>
+          // .pill 의 동그라미(i)는 포지션 순위용이라 「번호」 같은 글자는 들어가지 않는다
+          `<p class="pills"><span class="pill lab">등번호 <b>${mine.number}</b></span>
+            <span class="pill lab">사이즈 <b>${esc(sizeName(mine.size))}</b></span></p>
            ${mine.note ? `<p class="note">${esc(mine.note)}</p>` : ''}`,
           kclosed && !VIEW_AS ? '<p class="note">신청 기간이 끝났습니다.</p>'
             : '<button type="button" class="ghost" data-go="kit">고치기</button>'));
@@ -1147,6 +1164,10 @@
   $('tmBack').addEventListener('click', showHome);
 
   // 등번호·사이즈
+  $('nbWinner').addEventListener('click', openKitZoom);
+  $('kzClose').addEventListener('click', closeKitZoom);
+  // 그림 말고 어디를 눌러도 닫힌다 — 닫는 법을 찾느라 헤매지 않게
+  $('kzoom').addEventListener('click', e => { if (e.target.id !== 'kzImg') closeKitZoom(); });
   $('nbSizes').addEventListener('click', e => {
     const b = e.target.closest('button[data-s]'); if (!b) return;
     pick.size = pick.size === b.dataset.s ? '' : b.dataset.s;   // 다시 누르면 해제
@@ -1220,6 +1241,7 @@
   $('zpick').addEventListener('click', () => toggle(CFG.kits[zi].id));
   $('zoom').addEventListener('click', e => { if (e.target.id === 'zoom') closeZoom(); });
   document.addEventListener('keydown', e => {
+    if (!$('kzoom').hidden && e.key === 'Escape') return closeKitZoom();
     if ($('zoom').hidden) return;
     if (e.key === 'Escape') closeZoom();
     if (e.key === 'ArrowLeft') step(-1);

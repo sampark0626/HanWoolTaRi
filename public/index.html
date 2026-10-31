@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=26">
+<link rel="stylesheet" href="/style.css?v=27">
 </head>
 <body>
 
@@ -78,37 +78,38 @@
     <h2 id="nbTitle">등번호와 사이즈를 골라주세요</h2>
     <p class="lead" id="nbLead">2027 시즌 유니폼을 맞춥니다. 번호와 사이즈만 정해 주시면 됩니다.</p>
 
-    <div id="nbWinner" class="winner" hidden></div>
+    <button type="button" id="nbWinner" class="winner" hidden></button>
 
-    <h3 class="sub">사이즈</h3>
+    <h3 class="step"><i>1</i>사이즈</h3>
     <div id="nbSizes" class="sizes" role="group" aria-label="사이즈 고르기"></div>
     <p class="hintline" id="nbSizeHint"></p>
 
-    <h3 class="sub">등번호<span id="nbPicked" class="picked" hidden></span></h3>
+    <h3 class="step"><i>2</i>등번호<span id="nbPicked" class="picked" hidden></span></h3>
     <ul class="legend">
-      <li><i class="lg free"></i>비어 있음 · 고를 수 있습니다</li>
-      <li><i class="lg dorm"></i>휴면 회원 번호 · 고를 수 있습니다</li>
-      <li><i class="lg take"></i>활동 회원이 쓰는 번호 · 고를 수 없습니다</li>
-      <li><i class="lg on"></i>지금 고른 번호</li>
+      <li><i class="lg free"></i><span><b>빈 번호</b> 고르실 수 있습니다</span></li>
+      <li><i class="lg dorm"></i><span><b>요즘 안 나오시는 분 번호</b> 고르실 수 있습니다</span></li>
+      <li><i class="lg take"></i><span><b>지금 쓰는 번호</b> 고르실 수 없습니다</span></li>
+      <li><i class="lg on"></i><span><b>내가 고른 번호</b></span></li>
     </ul>
     <div id="nbGrid" class="numgrid" role="group" aria-label="등번호 고르기"></div>
-    <p class="hintline" id="nbTap">번호를 누르면 바로 아래 「신청하기」가 열립니다.</p>
+    <p class="hintline" id="nbTap"></p>
 
-    <h3 class="sub">세 자리 번호 (100~999)</h3>
-    <div class="bigrow">
-      <input id="nbBig" type="tel" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="예: 100">
-      <button id="nbBigAdd" type="button">이 번호로</button>
-    </div>
-    <p class="hintline">격자에 없는 번호도 쓸 수 있습니다. 세 자리는 여기에 적어주세요.</p>
+    <details class="more">
+      <summary>세 자리 번호(100~999)를 쓰고 싶으시면</summary>
+      <div class="bigrow">
+        <input id="nbBig" type="tel" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="예: 100">
+        <button id="nbBigAdd" type="button">이 번호로</button>
+      </div>
+    </details>
 
-    <h3 class="sub">남길 말씀 (안 적어도 됩니다)</h3>
-    <input id="nbNote" class="adinput" type="text" maxlength="40" autocomplete="off"
+    <h3 class="step soft">남길 말씀 <small>안 적으셔도 됩니다</small></h3>
+    <input id="nbNote" class="bigtext" type="text" maxlength="40" autocomplete="off"
            placeholder="예: 하의는 L로 부탁드립니다">
 
     <p id="nbErr" class="err" hidden></p>
     <p class="note" id="nbCount"></p>
 
-    <div class="stick">
+    <div class="stick nbstick">
       <button id="nbSave" class="primary" disabled>이 번호로 신청하기</button>
       <button id="nbSkip" class="plainlink">나중에 하기</button>
     </div>
@@ -245,6 +246,14 @@
   </div>
 </div>
 
+<!-- 3-1. 확정 유니폼 크게 보기 — 번호 화면의 시안을 누르면 열린다.
+     투표용 「크게 보기」(#zoom)와 따로 둔다. 여기엔 이전·다음도, 고르기도 없다. -->
+<div id="kzoom" class="kzoom" hidden>
+  <img id="kzImg" alt="">
+  <p class="kzname" id="kzName"></p>
+  <button type="button" class="kzclose" id="kzClose">닫기</button>
+</div>
+
 <!-- 7-2. 크게 보기 -->
 <div id="zoom" class="zoom" hidden>
   <button class="zclose" id="zclose" aria-label="닫기">✕</button>
@@ -275,6 +284,6 @@
 <script src="/core.js?v=3"></script>
 <script src="/kitnum.js?v=1"></script>
 <script src="/lineup.js?v=2"></script>
-<script src="/app.js?v=32"></script>
+<script src="/app.js?v=33"></script>
 </body>
 </html>
